@@ -11,16 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -48,13 +44,25 @@ import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
 import com.birliigant.techflow.ui.common.TopBarTextAction
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.launch
+
+enum class QuestionOrder(
+    val apiValue: String,
+    val label: String,
+) {
+    NEWEST("newest", "最新"),
+    ACTIVE("active", "活跃"),
+    HOT("hot", "热门"),
+    SCORE("score", "评分"),
+    UNANSWERED("unanswered", "未回答"),
+    RECOMMEND("recommend", "推荐"),
+}
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -62,6 +70,7 @@ data class HomeUiState(
     val questions: List<QuestionSummary> = emptyList(),
     val errorMessage: String? = null,
     val currentUser: UserProfile? = null,
+    val selectedOrder: QuestionOrder = QuestionOrder.NEWEST,
 )
 
 class HomeViewModel(
@@ -71,6 +80,7 @@ class HomeViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var refreshJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -81,11 +91,21 @@ class HomeViewModel(
         refresh()
     }
 
+    fun onOrderSelected(order: QuestionOrder) {
+        if (_uiState.value.selectedOrder == order) return
+        _uiState.update { it.copy(selectedOrder = order) }
+        refresh()
+    }
+
     fun refresh() {
-        viewModelScope.launch {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            val selectedOrder = _uiState.value.selectedOrder
             val siteDeferred = async { siteRepository.getSiteInfo() }
-            val questionsDeferred = async { questionRepository.getQuestionPage() }
+            val questionsDeferred = async {
+                questionRepository.getQuestionPage(order = selectedOrder.apiValue)
+            }
 
             val siteResult = siteDeferred.await()
             val questionResult = questionsDeferred.await()
@@ -124,6 +144,8 @@ fun HomeScreen(
                 HomeHeader(
                     siteInfo = uiState.siteInfo,
                     currentUser = uiState.currentUser,
+                    selectedOrder = uiState.selectedOrder,
+                    onOrderSelected = viewModel::onOrderSelected,
                     onOpenMe = onOpenMe,
                 )
             }
@@ -166,7 +188,11 @@ fun HomeScreen(
                             .padding(horizontal = 20.dp),
                     ) {
                         Text(
-                            text = "这里还没有内容，试试刷新或者发布你的第一个问题。",
+                            text = if (uiState.selectedOrder == QuestionOrder.ACTIVE) {
+                                "当前“活跃”分类下还没有内容，试试切换到其他排序。"
+                            } else {
+                                "这里还没有内容，试试切换排序或发布你的第一个问题。"
+                            },
                             modifier = Modifier.padding(20.dp),
                         )
                     }
@@ -180,6 +206,8 @@ fun HomeScreen(
 private fun HomeHeader(
     siteInfo: SiteInfo?,
     currentUser: UserProfile?,
+    selectedOrder: QuestionOrder,
+    onOrderSelected: (QuestionOrder) -> Unit,
     onOpenMe: () -> Unit,
 ) {
     Column(
@@ -257,12 +285,15 @@ private fun HomeHeader(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    FilterStripButton(label = "更多", icon = Icons.Outlined.MoreHoriz)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterPill(text = "最新", selected = true)
-                    FilterPill(text = "活跃", selected = false)
-                    FilterPill(text = "更多", selected = false)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(QuestionOrder.entries) { order ->
+                        FilterPill(
+                            text = order.label,
+                            selected = order == selectedOrder,
+                            onClick = { onOrderSelected(order) },
+                        )
+                    }
                 }
             }
         }
@@ -320,28 +351,12 @@ private fun QuestionCard(
 }
 
 @Composable
-private fun FilterPill(text: String, selected: Boolean) {
-    SectionSwitch(text = text, selected = selected, onClick = {})
-}
-
-@Composable
-private fun FilterStripButton(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun FilterPill(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    SectionSwitch(text = text, selected = selected, onClick = onClick)
 }
 
 @Composable

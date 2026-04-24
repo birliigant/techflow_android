@@ -23,6 +23,7 @@ interface TechFlowApi {
     suspend fun getQuestions(
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
+        @Query("order") order: String? = null,
     ): ApiEnvelope<PageEnvelope<QuestionDto>>
 
     @GET("answer/api/v1/question/info")

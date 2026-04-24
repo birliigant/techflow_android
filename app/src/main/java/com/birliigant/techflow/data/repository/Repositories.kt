@@ -100,9 +100,10 @@ class QuestionRepository(
     suspend fun getQuestionPage(
         page: Int = 1,
         pageSize: Int = 20,
+        order: String? = null,
     ): Result<List<QuestionSummary>> {
         return runCatching {
-            val envelope = apiClientProvider.api().getQuestions(page, pageSize)
+            val envelope = apiClientProvider.api().getQuestions(page, pageSize, order)
             val questions = envelope.requireData().list.orEmpty().map { it.toSummary() }
             cacheQuestions(questions)
             questions
