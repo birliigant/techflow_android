@@ -12,6 +12,7 @@ import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.UserProfile
+import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.core.model.markdownPreview
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
@@ -67,6 +68,10 @@ data class UserDto(
     @SerializedName("question_count") val questionCount: Int? = null,
     @SerializedName("answer_count") val answerCount: Int? = null,
     @SerializedName("follow_count") val followCount: Int? = null,
+    val bio: String? = null,
+    val website: String? = null,
+    val location: String? = null,
+    val profession: String? = null,
 )
 
 data class CommunityUserDto(
@@ -153,6 +158,18 @@ data class CreateQuestionRequest(
     val partition: String,
 )
 
+data class UpdateUserInfoRequest(
+    @SerializedName("display_name") val displayName: String? = null,
+    val username: String? = null,
+    val bio: String? = null,
+    val location: String? = null,
+    val website: String? = null,
+)
+
+data class ChangeProfessionRequest(
+    val profession: String? = null,
+)
+
 fun SiteInfoDto.toModel(): SiteInfo {
     return SiteInfo(
         name = name.orEmpty().ifBlank { "TechFlow" },
@@ -194,6 +211,10 @@ fun UserDto.toModel(): UserProfile {
         questionCount = questionCount ?: 0,
         answerCount = answerCount ?: 0,
         followCount = followCount ?: 0,
+        bio = bio.orEmpty(),
+        website = website.orEmpty(),
+        location = location.orEmpty(),
+        profession = profession.orEmpty(),
     )
 }
 
@@ -234,6 +255,8 @@ fun QuestionDto.toSummary(): QuestionSummary {
         title = title.orEmpty(),
         excerpt = excerpt.orEmpty().ifBlank { markdownPreview(contentText) },
         authorName = resolveAuthorName(),
+        authorUsername = resolveAuthorUsername(),
+        authorAvatar = resolveAuthorAvatar(),
         answerCount = answerCount ?: 0,
         voteCount = voteCount ?: 0,
         viewCount = viewCount ?: 0,
@@ -251,6 +274,8 @@ fun QuestionDto.toDetail(
         title = title.orEmpty(),
         content = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() },
         authorName = resolveAuthorName(),
+        authorUsername = resolveAuthorUsername(),
+        authorAvatar = resolveAuthorAvatar(),
         answerCount = answerCount ?: answers.size,
         voteCount = voteCount ?: 0,
         viewCount = viewCount ?: 0,
@@ -269,6 +294,10 @@ fun AnswerDto.toModel(): AnswerItem {
             .ifBlank { userInfo?.displayName.orEmpty() }
             .ifBlank { username.orEmpty() }
             .ifBlank { "匿名回答者" },
+        authorUsername = username.orEmpty()
+            .ifBlank { userInfo?.username.orEmpty() }
+            .ifBlank { userDisplayName.orEmpty() },
+        authorAvatar = userInfo?.avatar.toAvatarUrl(),
         voteCount = voteCount ?: 0,
         createdAt = createdAt.orEmpty(),
         accepted = accepted.toBooleanCompat(),
@@ -280,6 +309,7 @@ fun CommentDto.toModel(): CommentItem {
         id = commentId.orEmpty(),
         content = originalText.orEmpty(),
         authorName = userDisplayName.orEmpty().ifBlank { username.orEmpty() }.ifBlank { "访客" },
+        authorUsername = username.orEmpty().ifBlank { userDisplayName.orEmpty() },
         createdAt = createdAt.orEmpty(),
         replyUsername = replyUsername,
     )
@@ -303,6 +333,22 @@ fun QuestionDraft.toRequest(): CreateQuestionRequest {
     )
 }
 
+fun UserProfileUpdate.toInfoRequest(): UpdateUserInfoRequest {
+    return UpdateUserInfoRequest(
+        displayName = displayName,
+        username = username,
+        bio = bio,
+        location = location,
+        website = website,
+    )
+}
+
+fun UserProfileUpdate.toProfessionRequest(): ChangeProfessionRequest {
+    return ChangeProfessionRequest(
+        profession = profession,
+    )
+}
+
 private fun QuestionDto.resolveAuthorName(): String {
     return userDisplayName.orEmpty()
         .ifBlank { userInfo?.displayName.orEmpty() }
@@ -311,6 +357,17 @@ private fun QuestionDto.resolveAuthorName(): String {
         .ifBlank { userInfo?.username.orEmpty() }
         .ifBlank { author?.username.orEmpty() }
         .ifBlank { "匿名作者" }
+}
+
+private fun QuestionDto.resolveAuthorUsername(): String {
+    return username.orEmpty()
+        .ifBlank { userInfo?.username.orEmpty() }
+        .ifBlank { author?.username.orEmpty() }
+        .ifBlank { resolveAuthorName() }
+}
+
+private fun QuestionDto.resolveAuthorAvatar(): String? {
+    return userInfo?.avatar.toAvatarUrl() ?: author?.avatar.toAvatarUrl()
 }
 
 private fun JsonElement?.toBooleanCompat(): Boolean {

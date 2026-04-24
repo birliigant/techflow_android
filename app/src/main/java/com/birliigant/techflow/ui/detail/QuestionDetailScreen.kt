@@ -1,6 +1,7 @@
 package com.birliigant.techflow.ui.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -27,8 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.birliigant.techflow.core.model.AnswerItem
+import com.birliigant.techflow.core.model.CommentItem
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.data.repository.QuestionRepository
+import com.birliigant.techflow.ui.common.AvatarImage
+import com.birliigant.techflow.ui.common.MarkdownText
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +80,7 @@ class QuestionDetailViewModel(
 fun QuestionDetailScreen(
     viewModel: QuestionDetailViewModel,
     onBack: () -> Unit,
+    onOpenUserProfile: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -104,7 +112,10 @@ fun QuestionDetailScreen(
             val detail = uiState.detail
             if (detail != null) {
                 item {
-                    DetailHeader(detail)
+                    DetailHeader(
+                        detail = detail,
+                        onAuthorClick = { onOpenUserProfile(detail.authorUsername) },
+                    )
                 }
 
                 item {
@@ -121,24 +132,20 @@ fun QuestionDetailScreen(
 
                 if (detail.answers.isEmpty()) {
                     item {
-                        Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(20.dp),
+                        ) {
                             Text("还没有回答。", modifier = Modifier.padding(20.dp))
                         }
                     }
                 } else {
                     items(detail.answers, key = { it.id }) { answer ->
-                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier.padding(18.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Text(answer.content)
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Text("${answer.voteCount} 赞", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(answer.authorName, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
+                        AnswerCard(
+                            answer = answer,
+                            onAuthorClick = { onOpenUserProfile(answer.authorUsername) },
+                        )
                     }
                 }
 
@@ -147,17 +154,11 @@ fun QuestionDetailScreen(
                         Text("评论", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     }
                     items(detail.comments, key = { it.id }) { comment ->
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(comment.content)
-                            Text(
-                                text = buildString {
-                                    append(comment.authorName)
-                                    comment.replyUsername?.takeIf { it.isNotBlank() }?.let { append(" 回复 $it") }
-                                },
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
-                        }
+                        CommentCard(
+                            comment = comment,
+                            onAuthorClick = { onOpenUserProfile(comment.authorUsername) },
+                            onReplyClick = { username -> onOpenUserProfile(username) },
+                        )
                     }
                 }
 
@@ -165,7 +166,7 @@ fun QuestionDetailScreen(
                     Button(
                         onClick = {},
                         modifier = Modifier.fillMaxWidth(),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(28.dp),
                     ) {
                         Text("我要回答")
                     }
@@ -185,28 +186,158 @@ fun QuestionDetailScreen(
 }
 
 @Composable
-private fun DetailHeader(detail: QuestionDetail) {
-    Column(
+private fun DetailHeader(
+    detail: QuestionDetail,
+    onAuthorClick: () -> Unit,
+) {
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = detail.title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "${detail.authorName} · ${detail.createdAt.ifBlank { "刚刚" }}",
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = detail.content.ifBlank { "暂无正文" },
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("${detail.voteCount} 点赞", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${detail.answerCount} 回答", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${detail.viewCount} 浏览", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = detail.title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AvatarImage(
+                    imageUrl = detail.authorAvatar,
+                    fallbackText = detail.authorName,
+                    modifier = Modifier.size(44.dp),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = detail.authorName,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = onAuthorClick),
+                    )
+                    Text(
+                        text = "@${detail.authorUsername} · ${detail.createdAt.ifBlank { "刚刚" }}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            MarkdownText(detail.content)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("${detail.voteCount} 点赞", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${detail.answerCount} 回答", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${detail.viewCount} 浏览", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnswerCard(
+    answer: AnswerItem,
+    onAuthorClick: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            if (answer.accepted) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(999.dp),
+                ) {
+                    Text(
+                        text = "已采纳",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+            MarkdownText(answer.content)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AvatarImage(
+                        imageUrl = answer.authorAvatar,
+                        fallbackText = answer.authorName,
+                        modifier = Modifier.size(38.dp),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = answer.authorName,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable(onClick = onAuthorClick),
+                        )
+                        Text(
+                            text = "@${answer.authorUsername}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("${answer.voteCount} 赞", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = answer.createdAt.ifBlank { "刚刚" },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommentCard(
+    comment: CommentItem,
+    onAuthorClick: () -> Unit,
+    onReplyClick: (String) -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            MarkdownText(
+                content = comment.content,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = comment.authorName,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onAuthorClick),
+                )
+                comment.replyUsername?.takeIf { it.isNotBlank() }?.let { reply ->
+                    Text("回复", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = "@$reply",
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { onReplyClick(reply) },
+                    )
+                }
+            }
+            Text(
+                text = comment.createdAt.ifBlank { "刚刚" },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

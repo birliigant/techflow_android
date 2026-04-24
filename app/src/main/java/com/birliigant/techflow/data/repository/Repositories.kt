@@ -10,6 +10,7 @@ import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.UserProfile
+import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.core.model.normalizeBaseUrl
 import com.birliigant.techflow.data.local.CachedQuestionEntity
 import com.birliigant.techflow.data.local.QuestionDao
@@ -17,7 +18,9 @@ import com.birliigant.techflow.data.network.ApiClientProvider
 import com.birliigant.techflow.data.network.ApiEnvelope
 import com.birliigant.techflow.data.network.EmailLoginRequest
 import com.birliigant.techflow.data.network.toDetail
+import com.birliigant.techflow.data.network.toInfoRequest
 import com.birliigant.techflow.data.network.toModel
+import com.birliigant.techflow.data.network.toProfessionRequest
 import com.birliigant.techflow.data.network.toRequest
 import com.birliigant.techflow.data.network.toSummary
 import com.google.gson.Gson
@@ -204,6 +207,12 @@ class UserRepository(
         refreshCurrentUser().getOrThrow()
     }
 
+    suspend fun updateProfile(update: UserProfileUpdate): Result<UserProfile?> = runCatching {
+        apiClientProvider.api().updateCurrentUser(update.toInfoRequest()).requireNullableData()
+        apiClientProvider.api().updateProfession(update.toProfessionRequest()).requireNullableData()
+        refreshCurrentUser().getOrThrow()
+    }
+
     suspend fun getCommunityUsers(): Result<List<CommunityUser>> = runCatching {
         val payload = apiClientProvider.api().getCommunityUsers().requireData()
         payload.staffs.orEmpty().map { it.toModel() }
@@ -280,6 +289,8 @@ private fun CachedQuestionEntity.toModel(): QuestionSummary {
         title = title,
         excerpt = excerpt,
         authorName = authorName,
+        authorUsername = authorName,
+        authorAvatar = null,
         answerCount = answerCount,
         voteCount = voteCount,
         viewCount = viewCount,
@@ -294,6 +305,8 @@ private fun CachedQuestionEntity.toDetailFallback(): QuestionDetail {
         title = title,
         content = excerpt,
         authorName = authorName,
+        authorUsername = authorName,
+        authorAvatar = null,
         answerCount = answerCount,
         voteCount = voteCount,
         viewCount = viewCount,

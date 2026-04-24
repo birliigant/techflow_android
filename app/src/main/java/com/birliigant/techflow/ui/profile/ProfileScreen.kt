@@ -31,6 +31,7 @@ import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
+import com.birliigant.techflow.ui.common.MarkdownText
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,6 +80,7 @@ class ProfileViewModel(
             }
         }
         refreshProfile()
+        refreshOverviewContent()
         loadTab(initialTab)
     }
 
@@ -96,6 +98,19 @@ class ProfileViewModel(
                     isLoading = false,
                     profile = result.getOrNull(),
                     errorMessage = result.exceptionOrNull()?.message,
+                )
+            }
+        }
+    }
+
+    private fun refreshOverviewContent() {
+        viewModelScope.launch {
+            val answers = userRepository.getPersonalAnswers(username, pageSize = 3).getOrDefault(emptyList())
+            val questions = userRepository.getPersonalQuestions(username, pageSize = 3).getOrDefault(emptyList())
+            _uiState.update {
+                it.copy(
+                    answers = if (it.answers.isEmpty()) answers else it.answers,
+                    questions = if (it.questions.isEmpty()) questions else it.questions,
                 )
             }
         }
@@ -212,7 +227,14 @@ fun ProfileScreen(
             when (uiState.selectedTab) {
                 ProfileTab.OVERVIEW -> {
                     uiState.profile?.let { profile ->
-                        item { OverviewSection(profile) }
+                        item {
+                            OverviewSection(
+                                profile = profile,
+                                answers = uiState.answers.take(3),
+                                questions = uiState.questions.take(3),
+                                onQuestionClick = onQuestionClick,
+                            )
+                        }
                     }
                 }
 
@@ -257,15 +279,15 @@ private fun ProfileHeader(profile: PublicUserProfile) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         AvatarImage(
             imageUrl = profile.avatar,
             fallbackText = profile.displayName,
-            modifier = Modifier.size(88.dp),
+            modifier = Modifier.size(96.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(profile.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(profile.displayName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("@${profile.username}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 text = "${profile.followCount} 声望  ${profile.answerCount} 个回答  ${profile.questionCount} 个问题",
@@ -280,12 +302,17 @@ private fun ProfileHeader(profile: PublicUserProfile) {
 }
 
 @Composable
-private fun OverviewSection(profile: PublicUserProfile) {
+private fun OverviewSection(
+    profile: PublicUserProfile,
+    answers: List<AnswerItem>,
+    questions: List<QuestionSummary>,
+    onQuestionClick: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         ElevatedCard {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("关于我", fontWeight = FontWeight.Bold)
-                Text(profile.bio.ifBlank { "// Hello, World!" })
+                MarkdownText(profile.bio.ifBlank { "// Hello, World!" })
             }
         }
         ElevatedCard {
@@ -297,6 +324,37 @@ private fun OverviewSection(profile: PublicUserProfile) {
                 }
                 if (profile.website.isNotBlank()) {
                     Text("网站：${profile.website}")
+                }
+            }
+        }
+        ElevatedCard {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("高分回答", fontWeight = FontWeight.Bold)
+                if (answers.isEmpty()) {
+                    Text("没有找到相关的内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    answers.forEach { answer ->
+                        MarkdownText(
+                            content = answer.content,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+        }
+        ElevatedCard {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("高分问题", fontWeight = FontWeight.Bold)
+                if (questions.isEmpty()) {
+                    Text("没有找到相关的内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    questions.forEach { question ->
+                        Text(
+                            text = question.title,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { onQuestionClick(question.id) },
+                        )
+                    }
                 }
             }
         }

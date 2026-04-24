@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -24,6 +26,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,13 +36,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarBadge
+import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
@@ -77,10 +84,6 @@ class MeViewModel(
         initialValue = editorState.value,
     )
 
-    init {
-        refreshProfile()
-    }
-
     fun updateEmail(value: String) = editorState.update { it.copy(email = value) }
 
     fun updatePassword(value: String) = editorState.update { it.copy(password = value) }
@@ -106,11 +109,13 @@ class MeViewModel(
         }
     }
 
-    fun refreshProfile() {
+    fun refreshProfile(silent: Boolean = true) {
         viewModelScope.launch {
             val result = userRepository.refreshCurrentUser()
-            result.exceptionOrNull()?.message?.let { message ->
-                editorState.update { it.copy(message = message) }
+            if (!silent) {
+                result.exceptionOrNull()?.message?.let { message ->
+                    editorState.update { it.copy(message = message) }
+                }
             }
         }
     }
@@ -134,12 +139,23 @@ fun MeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var userMenuExpanded by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.consumeMessage()
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshProfile()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Column(
@@ -287,6 +303,8 @@ private fun LoggedInContent(
     onOpenCollections: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val user = uiState.user ?: return
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -297,13 +315,34 @@ private fun LoggedInContent(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "就差一步，我们已经连接到你的账户信息，你可以继续浏览、提问和参与回答。",
+            text = "你的账户信息会在每次进入页面时自动刷新，你可以继续浏览、提问和参与回答。",
             style = MaterialTheme.typography.bodyLarge,
         )
-        ProfileSummary(uiState.user!!)
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AvatarImage(
+                    imageUrl = user.avatar,
+                    fallbackText = user.displayName,
+                    modifier = Modifier.size(88.dp),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ProfileSummary(user)
+                    if (user.profession.isNotBlank()) {
+                        Text(
+                            text = user.profession,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -312,29 +351,25 @@ private fun LoggedInContent(
                 Button(
                     onClick = onOpenProfile,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Text("进入用户主页")
                 }
                 Button(
                     onClick = onOpenCollections,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Text("查看收藏夹")
                 }
                 Button(
                     onClick = onOpenSettings,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
                     Text("打开账号设置")
                 }
             }
-        }
-        Button(
-            onClick = viewModel::refreshProfile,
-            modifier = Modifier.fillMaxWidth(),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-        ) {
-            Text("刷新用户信息")
         }
         Button(
             onClick = viewModel::logout,
@@ -350,7 +385,12 @@ private fun LoggedInContent(
 @Composable
 private fun ProfileSummary(user: UserProfile) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("${user.displayName} (@${user.username})", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = user.displayName,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Text("@${user.username}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (user.email.isNotBlank()) {
             Text(user.email)
         }

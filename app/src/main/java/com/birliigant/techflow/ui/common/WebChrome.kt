@@ -239,6 +239,19 @@ fun AvatarImage(
                 .background(Color(0xFFE5E7EB)),
         )
     } else {
-        AvatarBadge(text = fallbackText, modifier = modifier)
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFFE7ECF8),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = fallbackText.take(1).uppercase(),
+                    color = Color(0xFF2A3D73),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
     }
 }

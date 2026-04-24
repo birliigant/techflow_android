@@ -38,6 +38,10 @@ data class UserProfile(
     val questionCount: Int = 0,
     val answerCount: Int = 0,
     val followCount: Int = 0,
+    val bio: String = "",
+    val website: String = "",
+    val location: String = "",
+    val profession: String = "",
 )
 
 data class CommunityUser(
@@ -69,6 +73,8 @@ data class QuestionSummary(
     val title: String,
     val excerpt: String,
     val authorName: String,
+    val authorUsername: String,
+    val authorAvatar: String? = null,
     val answerCount: Int,
     val voteCount: Int,
     val viewCount: Int,
@@ -80,6 +86,8 @@ data class AnswerItem(
     val id: String,
     val content: String,
     val authorName: String,
+    val authorUsername: String,
+    val authorAvatar: String? = null,
     val voteCount: Int,
     val createdAt: String,
     val accepted: Boolean = false,
@@ -89,6 +97,7 @@ data class CommentItem(
     val id: String,
     val content: String,
     val authorName: String,
+    val authorUsername: String,
     val createdAt: String,
     val replyUsername: String? = null,
 )
@@ -98,6 +107,8 @@ data class QuestionDetail(
     val title: String,
     val content: String,
     val authorName: String,
+    val authorUsername: String,
+    val authorAvatar: String? = null,
     val answerCount: Int,
     val voteCount: Int,
     val viewCount: Int,
@@ -105,6 +116,15 @@ data class QuestionDetail(
     val tags: List<TagItem>,
     val answers: List<AnswerItem>,
     val comments: List<CommentItem>,
+)
+
+data class UserProfileUpdate(
+    val displayName: String,
+    val username: String,
+    val bio: String,
+    val location: String,
+    val website: String,
+    val profession: String,
 )
 
 data class QuestionDraft(

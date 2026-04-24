@@ -12,6 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
@@ -54,6 +55,12 @@ interface TechFlowApi {
 
     @GET("answer/api/v1/user/info")
     suspend fun getCurrentUser(): ApiEnvelope<UserDto?>
+
+    @PUT("answer/api/v1/user/info")
+    suspend fun updateCurrentUser(@Body request: UpdateUserInfoRequest): ApiEnvelope<JsonObject?>
+
+    @PUT("answer/api/v1/user/profession")
+    suspend fun updateProfession(@Body request: ChangeProfessionRequest): ApiEnvelope<JsonObject?>
 
     @GET("answer/api/v1/user/ranking")
     suspend fun getCommunityUsers(): ApiEnvelope<CommunityUsersDto>

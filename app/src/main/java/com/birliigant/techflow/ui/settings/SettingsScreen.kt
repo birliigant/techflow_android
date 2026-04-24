@@ -14,16 +14,25 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.PublicUserProfile
+import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
@@ -36,8 +45,16 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val isLoading: Boolean = true,
+    val isSaving: Boolean = false,
     val username: String? = null,
     val profile: PublicUserProfile? = null,
+    val displayName: String = "",
+    val editedUsername: String = "",
+    val profession: String = "",
+    val bio: String = "",
+    val website: String = "",
+    val location: String = "",
+    val message: String? = null,
     val errorMessage: String? = null,
 )
 
@@ -67,17 +84,83 @@ class SettingsViewModel(
         }
     }
 
+    fun updateDisplayName(value: String) = _uiState.update { it.copy(displayName = value) }
+
+    fun updateEditedUsername(value: String) = _uiState.update { it.copy(editedUsername = value) }
+
+    fun updateProfession(value: String) = _uiState.update { it.copy(profession = value) }
+
+    fun updateBio(value: String) = _uiState.update { it.copy(bio = value) }
+
+    fun updateWebsite(value: String) = _uiState.update { it.copy(website = value) }
+
+    fun updateLocation(value: String) = _uiState.update { it.copy(location = value) }
+
+    fun consumeMessage() = _uiState.update { it.copy(message = null) }
+
     fun refresh() {
         val username = _uiState.value.username ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = userRepository.getPublicProfile(username)
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    profile = result.getOrNull(),
-                    errorMessage = result.exceptionOrNull()?.message,
-                )
+            _uiState.update { state ->
+                val profile = result.getOrNull()
+                if (profile != null) {
+                    state.copy(
+                        isLoading = false,
+                        profile = profile,
+                        displayName = profile.displayName,
+                        editedUsername = profile.username,
+                        profession = profile.profession,
+                        bio = profile.bio,
+                        website = profile.website,
+                        location = profile.location,
+                        errorMessage = null,
+                    )
+                } else {
+                    state.copy(
+                        isLoading = false,
+                        errorMessage = result.exceptionOrNull()?.message,
+                    )
+                }
+            }
+        }
+    }
+
+    fun save() {
+        val state = _uiState.value
+        if (state.editedUsername.isBlank()) {
+            _uiState.update { it.copy(message = "用户名不能为空") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, errorMessage = null, message = null) }
+            val result = userRepository.updateProfile(
+                UserProfileUpdate(
+                    displayName = state.displayName.trim(),
+                    username = state.editedUsername.trim(),
+                    bio = state.bio.trim(),
+                    location = state.location.trim(),
+                    website = state.website.trim(),
+                    profession = state.profession.trim(),
+                ),
+            )
+            if (result.isSuccess) {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        username = state.editedUsername.trim(),
+                        message = "资料已保存",
+                    )
+                }
+                refresh()
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isSaving = false,
+                        errorMessage = result.exceptionOrNull()?.message ?: "保存失败",
+                    )
+                }
             }
         }
     }
@@ -89,6 +172,25 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -99,6 +201,7 @@ fun SettingsScreen(
             title = "账号设置",
             onBackClick = onBack,
         )
+        SnackbarHost(hostState = snackbarHostState)
 
         if (uiState.isLoading && uiState.profile == null && uiState.errorMessage == null) {
             Column(
@@ -117,47 +220,11 @@ fun SettingsScreen(
         ) {
             uiState.profile?.let { profile ->
                 item {
-                    ElevatedCard {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            Text("个人资料", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            AvatarImage(
-                                imageUrl = profile.avatar,
-                                fallbackText = profile.displayName,
-                                modifier = Modifier.size(92.dp),
-                            )
-                            ReadonlyField("显示名称", profile.displayName)
-                            ReadonlyField("用户名", profile.username)
-                            ReadonlyField("专业", profile.profession)
-                            ReadonlyField("关于我", profile.bio)
-                            ReadonlyField("网站", profile.website)
-                            ReadonlyField("地区", profile.location)
-                            ReadonlyField("加入时间", profile.createdAt)
-                            ReadonlyField("最近登录", profile.lastLoginAt)
-                        }
-                    }
-                }
-                item {
-                    ElevatedCard {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            Text("当前能力说明", fontWeight = FontWeight.Bold)
-                            Text(
-                                "当前 App 已接入资料查看、用户主页、收藏夹、标签和用户列表。资料修改接口在公开文档里没有面向普通用户的稳定写接口，所以这里先做成安全的只读设置页。",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Button(
-                                onClick = viewModel::refresh,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text("刷新资料")
-                            }
-                        }
-                    }
+                    EditableProfileCard(
+                        profile = profile,
+                        uiState = uiState,
+                        viewModel = viewModel,
+                    )
                 }
             }
 
@@ -179,16 +246,75 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ReadonlyField(
-    label: String,
-    value: String,
+private fun EditableProfileCard(
+    profile: PublicUserProfile,
+    uiState: SettingsUiState,
+    viewModel: SettingsViewModel,
 ) {
-    OutlinedTextField(
-        value = value.ifBlank { "未填写" },
-        onValueChange = {},
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        readOnly = true,
-        enabled = false,
-    )
+    ElevatedCard {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("个人资料", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            AvatarImage(
+                imageUrl = profile.avatar,
+                fallbackText = profile.displayName,
+                modifier = Modifier.size(92.dp),
+            )
+            OutlinedTextField(
+                value = uiState.displayName,
+                onValueChange = viewModel::updateDisplayName,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("显示名称") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = uiState.editedUsername,
+                onValueChange = viewModel::updateEditedUsername,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("用户名") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = uiState.profession,
+                onValueChange = viewModel::updateProfession,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("专业") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = uiState.location,
+                onValueChange = viewModel::updateLocation,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("地区") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = uiState.website,
+                onValueChange = viewModel::updateWebsite,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("网站") },
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = uiState.bio,
+                onValueChange = viewModel::updateBio,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("关于我") },
+                minLines = 4,
+            )
+            Text(
+                text = "头像当前为只读展示；显示名、用户名、专业、地区、网站和简介可直接保存。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = viewModel::save,
+                enabled = !uiState.isSaving,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (uiState.isSaving) "保存中..." else "保存修改")
+            }
+        }
+    }
 }

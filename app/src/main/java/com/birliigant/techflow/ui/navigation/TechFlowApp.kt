@@ -95,6 +95,12 @@ fun TechFlowApp(appContainer: AppContainer) {
         } ?: navigateToTopLevel(Routes.me)
     }
 
+    fun openUserProfile(username: String) {
+        username.takeIf { it.isNotBlank() }?.let {
+            navController.navigate(Routes.profile(it))
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets.navigationBars,
         bottomBar = {
@@ -134,6 +140,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     onOpenMe = { navigateToTopLevel(Routes.me) },
                     onOpenTags = { navController.navigate(Routes.tags) },
                     onOpenUsers = { navController.navigate(Routes.users) },
+                    onOpenUserProfile = ::openUserProfile,
                     onOpenProfile = { openCurrentUserProfile() },
                     onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
                     onOpenSettings = { navController.navigate(Routes.settings) },
@@ -226,6 +233,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onBack = { navController.popBackStack() },
+                    onOpenUserProfile = ::openUserProfile,
                 )
             }
 

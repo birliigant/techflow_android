@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,9 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +49,7 @@ import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarBadge
+import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
@@ -144,6 +147,7 @@ fun HomeScreen(
     onOpenMe: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
+    onOpenUserProfile: (String) -> Unit,
     onOpenProfile: () -> Unit,
     onOpenCollections: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -202,6 +206,7 @@ fun HomeScreen(
                 QuestionCard(
                     question = question,
                     onClick = { onQuestionClick(question.id) },
+                    onAuthorClick = { onOpenUserProfile(question.authorUsername) },
                 )
             }
 
@@ -250,91 +255,94 @@ private fun HomeHeader(
             .background(MaterialTheme.colorScheme.primary)
             .padding(bottom = 18.dp),
     ) {
-        TechFlowTopBar(
-            title = siteInfo?.name ?: "SIPC TechFlow",
-            showMenu = true,
-            onMenuClick = { navigationMenuExpanded = true },
-        ) {
-            if (currentUser == null) {
-                TopBarTextAction(text = "登录", onClick = onOpenMe)
-                TopBarFilledAction(text = "注册", onClick = onOpenMe)
-            } else {
-                Box {
-                    Row(
-                        modifier = Modifier.clickable { userMenuExpanded = true },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        AvatarBadge(text = currentUser.displayName)
-                        Text(
-                            text = currentUser.displayName,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Icon(
-                            imageVector = Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = "用户菜单",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = userMenuExpanded,
-                        onDismissRequest = { userMenuExpanded = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("用户主页") },
-                            onClick = {
-                                userMenuExpanded = false
-                                onOpenProfile()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("收藏夹") },
-                            onClick = {
-                                userMenuExpanded = false
-                                onOpenCollections()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("账号设置") },
-                            onClick = {
-                                userMenuExpanded = false
-                                onOpenSettings()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("退出") },
-                            onClick = {
-                                userMenuExpanded = false
-                                onLogout()
-                            },
-                        )
+        Box {
+            TechFlowTopBar(
+                title = siteInfo?.name ?: "SIPC TechFlow",
+                showMenu = true,
+                onMenuClick = { navigationMenuExpanded = true },
+            ) {
+                if (currentUser == null) {
+                    TopBarTextAction(text = "登录", onClick = onOpenMe)
+                    TopBarFilledAction(text = "注册", onClick = onOpenMe)
+                } else {
+                    Box {
+                        Row(
+                            modifier = Modifier.clickable { userMenuExpanded = true },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            AvatarBadge(text = currentUser.displayName)
+                            Text(
+                                text = currentUser.displayName,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Icon(
+                                imageVector = Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = "用户菜单",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = userMenuExpanded,
+                            onDismissRequest = { userMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("用户主页") },
+                                onClick = {
+                                    userMenuExpanded = false
+                                    onOpenProfile()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("收藏夹") },
+                                onClick = {
+                                    userMenuExpanded = false
+                                    onOpenCollections()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("账号设置") },
+                                onClick = {
+                                    userMenuExpanded = false
+                                    onOpenSettings()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("退出") },
+                                onClick = {
+                                    userMenuExpanded = false
+                                    onLogout()
+                                },
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        DropdownMenu(
-            expanded = navigationMenuExpanded,
-            onDismissRequest = { navigationMenuExpanded = false },
-        ) {
-            DropdownMenuItem(
-                text = { Text("问题") },
-                onClick = { navigationMenuExpanded = false },
-            )
-            DropdownMenuItem(
-                text = { Text("标签") },
-                onClick = {
-                    navigationMenuExpanded = false
-                    onOpenTags()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("用户") },
-                onClick = {
-                    navigationMenuExpanded = false
-                    onOpenUsers()
-                },
-            )
+            DropdownMenu(
+                expanded = navigationMenuExpanded,
+                onDismissRequest = { navigationMenuExpanded = false },
+                offset = DpOffset(x = 12.dp, y = 56.dp),
+            ) {
+                DropdownMenuItem(
+                    text = { Text("问题") },
+                    onClick = { navigationMenuExpanded = false },
+                )
+                DropdownMenuItem(
+                    text = { Text("标签") },
+                    onClick = {
+                        navigationMenuExpanded = false
+                        onOpenTags()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("用户") },
+                    onClick = {
+                        navigationMenuExpanded = false
+                        onOpenUsers()
+                    },
+                )
+            }
         }
 
         Surface(
@@ -412,6 +420,7 @@ private fun HomeHeader(
 private fun QuestionCard(
     question: QuestionSummary,
     onClick: () -> Unit,
+    onAuthorClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -424,11 +433,32 @@ private fun QuestionCard(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
         )
-        Text(
-            text = "${question.authorName} · 提问于 ${question.createdAt.ifBlank { "刚刚" }}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            AvatarImage(
+                imageUrl = question.authorAvatar,
+                fallbackText = question.authorName,
+                modifier = Modifier
+                    .size(36.dp)
+                    .padding(top = 2.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = question.authorName,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onAuthorClick),
+                )
+                Text(
+                    text = "@${question.authorUsername} · 提问于 ${question.createdAt.ifBlank { "刚刚" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Text(
             text = "${question.voteCount} 个点赞  ·  ${question.answerCount} 个回答  ·  ${question.viewCount} 次浏览",
             style = MaterialTheme.typography.bodySmall,
