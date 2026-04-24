@@ -42,7 +42,7 @@ data class UserDto(
     val username: String? = null,
     @SerializedName("display_name") val displayName: String? = null,
     @SerializedName("e_mail") val email: String? = null,
-    val avatar: String? = null,
+    val avatar: JsonElement? = null,
     val rank: Int? = null,
     @SerializedName("question_count") val questionCount: Int? = null,
     @SerializedName("answer_count") val answerCount: Int? = null,
@@ -119,7 +119,7 @@ fun UserDto.toModel(): UserProfile {
         username = resolvedUsername,
         displayName = displayName.orEmpty().ifBlank { resolvedUsername },
         email = email.orEmpty(),
-        avatar = avatar,
+        avatar = avatar.toAvatarUrl(),
         rank = rank ?: 0,
         questionCount = questionCount ?: 0,
         answerCount = answerCount ?: 0,
@@ -225,4 +225,30 @@ private fun JsonElement?.toBooleanCompat(): Boolean {
         }
     }
     return false
+}
+
+private fun JsonElement?.toAvatarUrl(): String? {
+    val value = this ?: return null
+    if (value.isJsonNull) return null
+    if (value.isJsonPrimitive) {
+        return value.asString.takeIf { it.isNotBlank() }
+    }
+    if (!value.isJsonObject) return null
+
+    val obj = value.asJsonObject
+    val directKeys = listOf("avatar", "url", "src", "original", "small", "large")
+    directKeys.forEach { key ->
+        obj.get(key)?.let { nested ->
+            nested.toAvatarUrl()?.let { return it }
+        }
+    }
+
+    val nestedKeys = listOf("upload_file", "image", "urls")
+    nestedKeys.forEach { key ->
+        obj.get(key)?.let { nested ->
+            nested.toAvatarUrl()?.let { return it }
+        }
+    }
+
+    return null
 }
