@@ -76,7 +76,7 @@ data class QuestionDraft(
 )
 
 object AppDefaults {
-    const val defaultBaseUrl = "http://10.0.2.2:9080/"
+    const val defaultBaseUrl = "https://answer.sipc115.com/"
 }
 
 fun normalizeBaseUrl(raw: String): String {
