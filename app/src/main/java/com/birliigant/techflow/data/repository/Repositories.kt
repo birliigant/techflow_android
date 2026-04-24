@@ -1,0 +1,248 @@
+package com.birliigant.techflow.data.repository
+
+import com.birliigant.techflow.core.model.AppDefaults
+import com.birliigant.techflow.core.model.QuestionDetail
+import com.birliigant.techflow.core.model.QuestionDraft
+import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.SiteInfo
+import com.birliigant.techflow.core.model.TagItem
+import com.birliigant.techflow.core.model.UserProfile
+import com.birliigant.techflow.core.model.normalizeBaseUrl
+import com.birliigant.techflow.data.local.CachedQuestionEntity
+import com.birliigant.techflow.data.local.QuestionDao
+import com.birliigant.techflow.data.network.ApiClientProvider
+import com.birliigant.techflow.data.network.ApiEnvelope
+import com.birliigant.techflow.data.network.EmailLoginRequest
+import com.birliigant.techflow.data.network.toDetail
+import com.birliigant.techflow.data.network.toModel
+import com.birliigant.techflow.data.network.toRequest
+import com.birliigant.techflow.data.network.toSummary
+import com.google.gson.Gson
+import com.google.gson.JsonObject
+import com.tencent.mmkv.MMKV
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+class ConfigRepository(private val storage: MMKV) {
+    private val _baseUrl = MutableStateFlow(
+        normalizeBaseUrl(storage.decodeString(KEY_BASE_URL, AppDefaults.defaultBaseUrl).orEmpty()),
+    )
+    val baseUrl: StateFlow<String> = _baseUrl.asStateFlow()
+
+    fun saveBaseUrl(raw: String) {
+        val normalized = normalizeBaseUrl(raw)
+        storage.encode(KEY_BASE_URL, normalized)
+        _baseUrl.value = normalized
+    }
+
+    companion object {
+        private const val KEY_BASE_URL = "base_url"
+    }
+}
+
+class SessionRepository(
+    private val storage: MMKV,
+    private val gson: Gson,
+) {
+    private val _token = MutableStateFlow(storage.decodeString(KEY_TOKEN).orEmpty())
+    private val _currentUser = MutableStateFlow(storage.decodeString(KEY_USER)?.let {
+        runCatching { gson.fromJson(it, UserProfile::class.java) }.getOrNull()
+    })
+
+    val token: StateFlow<String> = _token.asStateFlow()
+    val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
+
+    fun setToken(value: String) {
+        storage.encode(KEY_TOKEN, value)
+        _token.value = value
+    }
+
+    fun clearToken() {
+        storage.removeValueForKey(KEY_TOKEN)
+        _token.value = ""
+    }
+
+    fun setCurrentUser(user: UserProfile?) {
+        if (user == null) {
+            storage.removeValueForKey(KEY_USER)
+        } else {
+            storage.encode(KEY_USER, gson.toJson(user))
+        }
+        _currentUser.value = user
+    }
+
+    fun clearSession() {
+        clearToken()
+        setCurrentUser(null)
+    }
+
+    companion object {
+        private const val KEY_TOKEN = "access_token"
+        private const val KEY_USER = "current_user"
+    }
+}
+
+class SiteRepository(
+    private val apiClientProvider: ApiClientProvider,
+) {
+    suspend fun getSiteInfo(): Result<SiteInfo> = runCatching {
+        val envelope = apiClientProvider.api().getSiteInfo()
+        envelope.requireData().toModel()
+    }
+}
+
+class QuestionRepository(
+    private val apiClientProvider: ApiClientProvider,
+    private val questionDao: QuestionDao,
+) {
+    suspend fun getQuestionPage(
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<QuestionSummary>> {
+        return runCatching {
+            val envelope = apiClientProvider.api().getQuestions(page, pageSize)
+            val questions = envelope.requireData().list.orEmpty().map { it.toSummary() }
+            cacheQuestions(questions)
+            questions
+        }.recoverCatching {
+            val cached = questionDao.getAll().map { it.toModel() }
+            if (cached.isNotEmpty()) cached else throw it
+        }
+    }
+
+    suspend fun getQuestionDetail(questionId: String): Result<QuestionDetail> {
+        return runCatching {
+            coroutineScope {
+                val api = apiClientProvider.api()
+                val questionDeferred = async { api.getQuestionDetail(questionId) }
+                val answerDeferred = async { api.getAnswerPage(questionId, 1, 20) }
+                val commentDeferred = async { api.getCommentPage(questionId, 1, 20) }
+
+                val question = questionDeferred.await().requireData()
+                val answers = answerDeferred.await().requireData().list.orEmpty().map { it.toModel() }
+                val comments = commentDeferred.await().requireData().list.orEmpty().map { it.toModel() }
+                question.toDetail(answers = answers, comments = comments)
+            }
+        }.recoverCatching { error ->
+            questionDao.getById(questionId)?.toDetailFallback() ?: throw error
+        }
+    }
+
+    suspend fun createQuestion(draft: QuestionDraft): Result<String> = runCatching {
+        val response = apiClientProvider.api().createQuestion(draft.toRequest())
+        val payload = response.requireNullableData()
+        payload.extractString("id", "question_id", "questionId").orEmpty()
+    }
+
+    private suspend fun cacheQuestions(questions: List<QuestionSummary>) {
+        val cached = questions.map { item ->
+            CachedQuestionEntity(
+                id = item.id,
+                title = item.title,
+                excerpt = item.excerpt,
+                authorName = item.authorName,
+                answerCount = item.answerCount,
+                voteCount = item.voteCount,
+                viewCount = item.viewCount,
+                createdAt = item.createdAt,
+                tags = item.tags.map(TagItem::name),
+                syncedAt = System.currentTimeMillis(),
+            )
+        }
+        questionDao.clearAll()
+        questionDao.upsertAll(cached)
+    }
+}
+
+class UserRepository(
+    private val apiClientProvider: ApiClientProvider,
+    private val sessionRepository: SessionRepository,
+) {
+    suspend fun refreshCurrentUser(): Result<UserProfile?> = runCatching {
+        val envelope = apiClientProvider.api().getCurrentUser()
+        val user = envelope.requireNullableData()?.toModel()
+        sessionRepository.setCurrentUser(user)
+        user
+    }
+
+    suspend fun loginWithEmail(
+        email: String,
+        password: String,
+    ): Result<UserProfile?> = runCatching {
+        val response = apiClientProvider.api().loginWithEmail(
+            EmailLoginRequest(email = email, password = password),
+        )
+        val token = response.requireData().extractString(
+            "access_token",
+            "accessToken",
+            "token",
+            "visit_token",
+        ).orEmpty()
+
+        require(token.isNotBlank()) {
+            "登录成功，但响应里没有找到可用 token，请改用手动 token 登录。"
+        }
+
+        sessionRepository.setToken(token)
+        refreshCurrentUser().getOrThrow()
+    }
+
+    fun saveManualToken(token: String) {
+        sessionRepository.setToken(token.trim())
+    }
+
+    suspend fun logout() {
+        runCatching { apiClientProvider.api().logout() }
+        sessionRepository.clearSession()
+    }
+}
+
+private fun <T> ApiEnvelope<T>.requireData(): T {
+    require((code ?: 200) in 200..299) { msg ?: reason ?: "请求失败" }
+    return data ?: error(msg ?: reason ?: "服务端没有返回数据")
+}
+
+private fun <T> ApiEnvelope<T?>.requireNullableData(): T? {
+    require((code ?: 200) in 200..299) { msg ?: reason ?: "请求失败" }
+    return data
+}
+
+private fun JsonObject?.extractString(vararg keys: String): String? {
+    val source = this ?: return null
+    return keys.firstNotNullOfOrNull { key ->
+        source.get(key)?.takeIf { !it.isJsonNull }?.asString
+    }
+}
+
+private fun CachedQuestionEntity.toModel(): QuestionSummary {
+    return QuestionSummary(
+        id = id,
+        title = title,
+        excerpt = excerpt,
+        authorName = authorName,
+        answerCount = answerCount,
+        voteCount = voteCount,
+        viewCount = viewCount,
+        createdAt = createdAt,
+        tags = tags.map { TagItem(name = it) },
+    )
+}
+
+private fun CachedQuestionEntity.toDetailFallback(): QuestionDetail {
+    return QuestionDetail(
+        id = id,
+        title = title,
+        content = excerpt,
+        authorName = authorName,
+        answerCount = answerCount,
+        voteCount = voteCount,
+        viewCount = viewCount,
+        createdAt = createdAt,
+        tags = tags.map { TagItem(name = it) },
+        answers = emptyList(),
+        comments = emptyList(),
+    )
+}
