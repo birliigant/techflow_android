@@ -20,7 +20,6 @@ import com.birliigant.techflow.data.network.toSummary
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.tencent.mmkv.MMKV
-import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -117,13 +116,13 @@ class QuestionRepository(
         return runCatching {
             coroutineScope {
                 val api = apiClientProvider.api()
-                val questionDeferred = async { api.getQuestionDetail(questionId) }
-                val answerDeferred = async { api.getAnswerPage(questionId, 1, 20) }
-                val commentDeferred = async { api.getCommentPage(questionId, 1, 20) }
-
-                val question = questionDeferred.await().requireData()
-                val answers = answerDeferred.await().requireData().list.orEmpty().map { it.toModel() }
-                val comments = commentDeferred.await().requireData().list.orEmpty().map { it.toModel() }
+                val question = api.getQuestionDetail(questionId).requireData()
+                val answers = runCatching {
+                    api.getAnswerPage(questionId, 1, 20).requireData().list.orEmpty().map { it.toModel() }
+                }.getOrDefault(emptyList())
+                val comments = runCatching {
+                    api.getCommentPage(questionId, 1, 20).requireData().list.orEmpty().map { it.toModel() }
+                }.getOrDefault(emptyList())
                 question.toDetail(answers = answers, comments = comments)
             }
         }.recoverCatching { error ->

@@ -9,6 +9,7 @@ import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.markdownPreview
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 
 data class ApiEnvelope<T>(
@@ -52,12 +53,13 @@ data class QuestionDto(
     val id: String? = null,
     val title: String? = null,
     val content: String? = null,
+    val html: String? = null,
     @SerializedName("parsed_text") val parsedText: String? = null,
     val excerpt: String? = null,
     @SerializedName("view_count") val viewCount: Int? = null,
     @SerializedName("answer_count") val answerCount: Int? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
@@ -68,13 +70,14 @@ data class QuestionDto(
 data class AnswerDto(
     val id: String? = null,
     val content: String? = null,
+    val html: String? = null,
     @SerializedName("parsed_text") val parsedText: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    val accepted: Boolean? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+    val accepted: JsonElement? = null,
 )
 
 data class CommentDto(
@@ -83,7 +86,7 @@ data class CommentDto(
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("reply_username") val replyUsername: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
 )
 
 data class EmailLoginRequest(
@@ -125,7 +128,7 @@ fun UserDto.toModel(): UserProfile {
 }
 
 fun QuestionDto.toSummary(): QuestionSummary {
-    val contentText = content.orEmpty().ifBlank { parsedText.orEmpty() }
+    val contentText = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() }
     return QuestionSummary(
         id = id.orEmpty(),
         title = title.orEmpty(),
@@ -146,7 +149,7 @@ fun QuestionDto.toDetail(
     return QuestionDetail(
         id = id.orEmpty(),
         title = title.orEmpty(),
-        content = content.orEmpty().ifBlank { parsedText.orEmpty() },
+        content = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() },
         authorName = resolveAuthorName(),
         answerCount = answerCount ?: answers.size,
         voteCount = voteCount ?: 0,
@@ -161,14 +164,14 @@ fun QuestionDto.toDetail(
 fun AnswerDto.toModel(): AnswerItem {
     return AnswerItem(
         id = id.orEmpty(),
-        content = content.orEmpty().ifBlank { parsedText.orEmpty() },
+        content = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() },
         authorName = userDisplayName.orEmpty()
             .ifBlank { userInfo?.displayName.orEmpty() }
             .ifBlank { username.orEmpty() }
             .ifBlank { "匿名回答者" },
         voteCount = voteCount ?: 0,
         createdAt = createdAt.orEmpty(),
-        accepted = accepted ?: false,
+        accepted = accepted.toBooleanCompat(),
     )
 }
 
@@ -208,4 +211,18 @@ private fun QuestionDto.resolveAuthorName(): String {
         .ifBlank { userInfo?.username.orEmpty() }
         .ifBlank { author?.username.orEmpty() }
         .ifBlank { "匿名作者" }
+}
+
+private fun JsonElement?.toBooleanCompat(): Boolean {
+    val value = this ?: return false
+    if (value.isJsonPrimitive) {
+        val primitive = value.asJsonPrimitive
+        return when {
+            primitive.isBoolean -> primitive.asBoolean
+            primitive.isNumber -> primitive.asInt != 0
+            primitive.isString -> primitive.asString == "1" || primitive.asString.equals("true", ignoreCase = true)
+            else -> false
+        }
+    }
+    return false
 }
