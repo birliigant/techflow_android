@@ -40,7 +40,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.UserProfile
-import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
@@ -62,21 +61,18 @@ data class HomeUiState(
     val siteInfo: SiteInfo? = null,
     val questions: List<QuestionSummary> = emptyList(),
     val errorMessage: String? = null,
-    val baseUrl: String = "",
     val currentUser: UserProfile? = null,
 )
 
 class HomeViewModel(
     private val siteRepository: SiteRepository,
     private val questionRepository: QuestionRepository,
-    configRepository: ConfigRepository,
     sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.update { it.copy(baseUrl = configRepository.baseUrl.value) }
         viewModelScope.launch {
             sessionRepository.currentUser.collect { user ->
                 _uiState.update { it.copy(currentUser = user) }
@@ -127,7 +123,6 @@ fun HomeScreen(
             item {
                 HomeHeader(
                     siteInfo = uiState.siteInfo,
-                    baseUrl = uiState.baseUrl,
                     currentUser = uiState.currentUser,
                     onOpenMe = onOpenMe,
                 )
@@ -150,7 +145,7 @@ fun HomeScreen(
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("暂时拉不到问题列表", style = MaterialTheme.typography.titleMedium)
                             Text(uiState.errorMessage.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("可以先去“我的”里确认服务器地址和 token。")
+                            Text("请稍后重试，或检查网络连接与账号状态。")
                         }
                     }
                 }
@@ -184,7 +179,6 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(
     siteInfo: SiteInfo?,
-    baseUrl: String,
     currentUser: UserProfile?,
     onOpenMe: () -> Unit,
 ) {
@@ -254,7 +248,10 @@ private fun HomeHeader(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = siteInfo?.shortDescription?.ifBlank { "当前服务: $baseUrl" } ?: "当前服务: $baseUrl",
+                            text = siteInfo?.shortDescription?.ifBlank {
+                                siteInfo?.description?.ifBlank { "欢迎来到 SIPC TechFlow 学术问答社区" }
+                                    ?: "欢迎来到 SIPC TechFlow 学术问答社区"
+                            } ?: "欢迎来到 SIPC TechFlow 学术问答社区",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

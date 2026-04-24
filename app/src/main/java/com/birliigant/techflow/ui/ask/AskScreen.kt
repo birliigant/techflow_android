@@ -83,7 +83,7 @@ class AskViewModel(
     fun submitQuestion() {
         val state = uiState.value
         if (!state.isLoggedIn) {
-            editorState.update { it.copy(message = "请先在“我的”页面配置 token 或登录。") }
+            editorState.update { it.copy(message = "请先登录后再发布问题。") }
             return
         }
         if (state.title.length < 6 || state.content.length < 6) {

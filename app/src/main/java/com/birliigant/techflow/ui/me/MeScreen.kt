@@ -26,7 +26,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.UserProfile
-import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.TechFlowFooter
@@ -42,8 +41,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class MeUiState(
-    val baseUrl: String = "",
-    val tokenInput: String = "",
     val email: String = "",
     val password: String = "",
     val user: UserProfile? = null,
@@ -52,13 +49,10 @@ data class MeUiState(
 )
 
 class MeViewModel(
-    private val configRepository: ConfigRepository,
     sessionRepository: SessionRepository,
     private val userRepository: UserRepository,
 ) : ViewModel() {
-    private val editorState = MutableStateFlow(
-        MeUiState(baseUrl = configRepository.baseUrl.value),
-    )
+    private val editorState = MutableStateFlow(MeUiState())
 
     val uiState: StateFlow<MeUiState> = combine(
         editorState,
@@ -75,31 +69,11 @@ class MeViewModel(
         refreshProfile()
     }
 
-    fun updateBaseUrl(value: String) = editorState.update { it.copy(baseUrl = value) }
-
-    fun updateToken(value: String) = editorState.update { it.copy(tokenInput = value) }
-
     fun updateEmail(value: String) = editorState.update { it.copy(email = value) }
 
     fun updatePassword(value: String) = editorState.update { it.copy(password = value) }
 
     fun consumeMessage() = editorState.update { it.copy(message = null) }
-
-    fun saveBaseUrl() {
-        configRepository.saveBaseUrl(uiState.value.baseUrl)
-        editorState.update { it.copy(baseUrl = configRepository.baseUrl.value, message = "服务器地址已保存") }
-    }
-
-    fun saveManualToken() {
-        val token = uiState.value.tokenInput.trim()
-        if (token.isBlank()) {
-            editorState.update { it.copy(message = "请先输入 token") }
-            return
-        }
-        userRepository.saveManualToken(token)
-        editorState.update { it.copy(tokenInput = "", message = "token 已保存，正在刷新用户信息...") }
-        refreshProfile()
-    }
 
     fun login() {
         val state = uiState.value
@@ -178,9 +152,6 @@ fun MeScreen(viewModel: MeViewModel) {
                 } else {
                     LoggedInContent(uiState = uiState, viewModel = viewModel)
                 }
-            }
-            item {
-                DeveloperConfigSection(uiState = uiState, viewModel = viewModel)
             }
             item {
                 TechFlowFooter()
@@ -267,42 +238,6 @@ private fun LoggedInContent(
             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
         ) {
             Text("退出登录")
-        }
-    }
-}
-
-@Composable
-private fun DeveloperConfigSection(
-    uiState: MeUiState,
-    viewModel: MeViewModel,
-) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("连接设置", style = MaterialTheme.typography.titleLarge)
-            OutlinedTextField(
-                value = uiState.baseUrl,
-                onValueChange = viewModel::updateBaseUrl,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("服务根地址") },
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-            )
-            Button(onClick = viewModel::saveBaseUrl, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
-                Text("保存地址")
-            }
-            OutlinedTextField(
-                value = uiState.tokenInput,
-                onValueChange = viewModel::updateToken,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Access Token") },
-                minLines = 3,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-            )
-            Button(onClick = viewModel::saveManualToken, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
-                Text("保存 token")
-            }
         }
     }
 }

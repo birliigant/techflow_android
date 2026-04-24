@@ -100,7 +100,6 @@ fun TechFlowApp(appContainer: AppContainer) {
                             HomeViewModel(
                                 siteRepository = appContainer.siteRepository,
                                 questionRepository = appContainer.questionRepository,
-                                configRepository = appContainer.configRepository,
                                 sessionRepository = appContainer.sessionRepository,
                             )
                         },
@@ -130,7 +129,6 @@ fun TechFlowApp(appContainer: AppContainer) {
                     viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                         factory = appViewModelFactory {
                             MeViewModel(
-                                configRepository = appContainer.configRepository,
                                 sessionRepository = appContainer.sessionRepository,
                                 userRepository = appContainer.userRepository,
                             )

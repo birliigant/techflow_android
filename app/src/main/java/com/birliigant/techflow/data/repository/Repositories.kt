@@ -183,15 +183,11 @@ class UserRepository(
         ).orEmpty()
 
         require(token.isNotBlank()) {
-            "登录成功，但响应里没有找到可用 token，请改用手动 token 登录。"
+            "登录成功，但暂时无法完成账号授权，请稍后重试。"
         }
 
         sessionRepository.setToken(token)
         refreshCurrentUser().getOrThrow()
-    }
-
-    fun saveManualToken(token: String) {
-        sessionRepository.setToken(token.trim())
     }
 
     suspend fun logout() {
