@@ -101,6 +101,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                                 siteRepository = appContainer.siteRepository,
                                 questionRepository = appContainer.questionRepository,
                                 configRepository = appContainer.configRepository,
+                                sessionRepository = appContainer.sessionRepository,
                             )
                         },
                     ),

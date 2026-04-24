@@ -6,24 +6,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -33,7 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,24 +31,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.birliigant.techflow.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
+import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.QuestionRepository
+import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
+import com.birliigant.techflow.ui.common.AvatarBadge
+import com.birliigant.techflow.ui.common.SectionSwitch
+import com.birliigant.techflow.ui.common.TechFlowTopBar
+import com.birliigant.techflow.ui.common.TopBarFilledAction
+import com.birliigant.techflow.ui.common.TopBarTextAction
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
@@ -67,18 +63,25 @@ data class HomeUiState(
     val questions: List<QuestionSummary> = emptyList(),
     val errorMessage: String? = null,
     val baseUrl: String = "",
+    val currentUser: UserProfile? = null,
 )
 
 class HomeViewModel(
     private val siteRepository: SiteRepository,
     private val questionRepository: QuestionRepository,
     configRepository: ConfigRepository,
+    sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         _uiState.update { it.copy(baseUrl = configRepository.baseUrl.value) }
+        viewModelScope.launch {
+            sessionRepository.currentUser.collect { user ->
+                _uiState.update { it.copy(currentUser = user) }
+            }
+        }
         refresh()
     }
 
@@ -125,7 +128,7 @@ fun HomeScreen(
                 HomeHeader(
                     siteInfo = uiState.siteInfo,
                     baseUrl = uiState.baseUrl,
-                    onRefresh = viewModel::refresh,
+                    currentUser = uiState.currentUser,
                     onOpenMe = onOpenMe,
                 )
             }
@@ -182,55 +185,25 @@ fun HomeScreen(
 private fun HomeHeader(
     siteInfo: SiteInfo?,
     baseUrl: String,
-    onRefresh: () -> Unit,
+    currentUser: UserProfile?,
     onOpenMe: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primary)
-            .statusBarsPadding()
-            .padding(top = 10.dp, bottom = 18.dp),
+            .padding(bottom = 18.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+        TechFlowTopBar(
+            title = siteInfo?.name ?: "SIPC TechFlow",
+            showMenu = true,
+            onMenuClick = {},
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(9.dp),
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_brand_mark),
-                            contentDescription = "Logo",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = siteInfo?.name ?: "Answer",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新", tint = MaterialTheme.colorScheme.onPrimary)
-                }
-                IconButton(onClick = onOpenMe) {
-                    Icon(Icons.Outlined.Person, contentDescription = "我的", tint = MaterialTheme.colorScheme.onPrimary)
-                }
+            if (currentUser == null) {
+                TopBarTextAction(text = "登录", onClick = onOpenMe)
+                TopBarFilledAction(text = "注册", onClick = onOpenMe)
+            } else {
+                AvatarBadge(text = currentUser.displayName)
             }
         }
 
@@ -262,9 +235,8 @@ private fun HomeHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp,
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -288,12 +260,12 @@ private fun HomeHeader(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    FilterStripButton(label = "More", icon = Icons.Outlined.MoreHoriz)
+                    FilterStripButton(label = "更多", icon = Icons.Outlined.MoreHoriz)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterPill(text = "Active", selected = true)
-                    FilterPill(text = "Newest", selected = false)
-                    FilterPill(text = "Frequent", selected = false)
+                    FilterPill(text = "最新", selected = true)
+                    FilterPill(text = "活跃", selected = false)
+                    FilterPill(text = "更多", selected = false)
                 }
             }
         }
@@ -305,67 +277,58 @@ private fun QuestionCard(
     question: QuestionSummary,
     onClick: () -> Unit,
 ) {
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(18.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Text(
+            text = question.title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "${question.authorName} · 提问于 ${question.createdAt.ifBlank { "刚刚" }}",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = "${question.voteCount} 个点赞  ·  ${question.answerCount} 个回答  ·  ${question.viewCount} 次浏览",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (question.excerpt.isNotBlank()) {
             Text(
-                text = question.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                text = question.excerpt,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = "${question.authorName} · ${question.voteCount} votes · ${question.answerCount} answers · ${question.viewCount} views",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (question.excerpt.isNotBlank()) {
-                Text(
-                    text = question.excerpt,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            question.tags.take(2).forEachIndexed { index, tag ->
+                TagPill(
+                    text = tag.name,
+                    paletteIndex = index,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                question.tags.take(4).forEachIndexed { index, tag ->
-                    TagPill(
-                        text = tag.name,
-                        paletteIndex = index,
-                    )
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 16.dp),
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+        )
     }
 }
 
 @Composable
 private fun FilterPill(text: String, selected: Boolean) {
-    FilterChip(
-        selected = selected,
-        onClick = {},
-        label = { Text(text) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            selectedLabelColor = MaterialTheme.colorScheme.primary,
-            containerColor = MaterialTheme.colorScheme.background,
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-    )
+    SectionSwitch(text = text, selected = selected, onClick = {})
 }
 
 @Composable
-private fun RowScope.FilterStripButton(
+private fun FilterStripButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
 ) {

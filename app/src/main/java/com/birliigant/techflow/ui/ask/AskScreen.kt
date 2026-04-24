@@ -7,20 +7,20 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +28,8 @@ import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
+import com.birliigant.techflow.ui.common.TechFlowFooter
+import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -138,26 +140,35 @@ fun AskScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
+            .background(MaterialTheme.colorScheme.background),
     ) {
+        TechFlowTopBar(
+            title = "SIPC TechFlow",
+            showMenu = true,
+            onMenuClick = {},
+        )
         SnackbarHost(hostState = snackbarHostState)
         LazyColumn(
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("发布问题", style = MaterialTheme.typography.headlineSmall)
-                        Text("根据接口文档，发帖至少需要标题、正文、标签和分区。")
-                        if (!uiState.isLoggedIn) {
-                            Button(onClick = onGoProfile) {
-                                Text("先去登录")
-                            }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "欢迎来到 SIPC TechFlow",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "根据接口文档，发帖至少需要标题、正文、标签和分区。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!uiState.isLoggedIn) {
+                        TextButton(onClick = onGoProfile) {
+                            Text("还没登录？先去登录")
                         }
                     }
                 }
@@ -168,7 +179,8 @@ fun AskScreen(
                     onValueChange = viewModel::updateTitle,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("标题") },
-                    minLines = 2,
+                    singleLine = true,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
             }
             item {
@@ -178,6 +190,7 @@ fun AskScreen(
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("正文（Markdown）") },
                     minLines = 8,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
             }
             item {
@@ -186,6 +199,7 @@ fun AskScreen(
                     onValueChange = viewModel::updateTags,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("标签，逗号分隔") },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
             }
             item {
@@ -194,6 +208,7 @@ fun AskScreen(
                     onValueChange = viewModel::updatePartition,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("分区") },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
             }
             item {
@@ -201,9 +216,13 @@ fun AskScreen(
                     onClick = viewModel::submitQuestion,
                     enabled = !uiState.isSubmitting,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 ) {
                     Text(if (uiState.isSubmitting) "提交中..." else "发布问题")
                 }
+            }
+            item {
+                TechFlowFooter()
             }
         }
     }

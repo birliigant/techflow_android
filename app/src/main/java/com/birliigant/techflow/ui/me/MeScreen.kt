@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
@@ -21,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,6 +29,10 @@ import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
+import com.birliigant.techflow.ui.common.TechFlowFooter
+import com.birliigant.techflow.ui.common.TechFlowTopBar
+import com.birliigant.techflow.ui.common.TopBarFilledAction
+import com.birliigant.techflow.ui.common.TopBarTextAction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -149,103 +153,155 @@ fun MeScreen(viewModel: MeViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding(),
+            .background(MaterialTheme.colorScheme.background),
     ) {
+        TechFlowTopBar(
+            title = "SIPC TechFlow",
+            showMenu = true,
+            onMenuClick = {},
+        ) {
+            if (uiState.user == null) {
+                TopBarTextAction(text = "登录", onClick = {})
+                TopBarFilledAction(text = "注册", onClick = {})
+            } else {
+                TopBarTextAction(text = uiState.user?.displayName ?: "我的", onClick = {})
+            }
+        }
         SnackbarHost(hostState = snackbarHostState)
         LazyColumn(
-            contentPadding = PaddingValues(20.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("连接设置", style = MaterialTheme.typography.headlineSmall)
-                        Text("接口文档只定义了路径，所以这里允许你直接配置服务根地址。")
-                        OutlinedTextField(
-                            value = uiState.baseUrl,
-                            onValueChange = viewModel::updateBaseUrl,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("服务根地址") },
-                        )
-                        Button(onClick = viewModel::saveBaseUrl) {
-                            Text("保存地址")
-                        }
-                    }
+                if (uiState.user == null) {
+                    LoginContent(uiState = uiState, viewModel = viewModel)
+                } else {
+                    LoggedInContent(uiState = uiState, viewModel = viewModel)
                 }
             }
-
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("邮箱登录", style = MaterialTheme.typography.titleLarge)
-                        OutlinedTextField(
-                            value = uiState.email,
-                            onValueChange = viewModel::updateEmail,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("邮箱") },
-                        )
-                        OutlinedTextField(
-                            value = uiState.password,
-                            onValueChange = viewModel::updatePassword,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("密码") },
-                        )
-                        Button(onClick = viewModel::login, enabled = !uiState.busy) {
-                            Text(if (uiState.busy) "登录中..." else "邮箱登录")
-                        }
-                    }
-                }
+                DeveloperConfigSection(uiState = uiState, viewModel = viewModel)
             }
-
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("手动 token", style = MaterialTheme.typography.titleLarge)
-                        Text("如果后端登录响应没有直接返回 token，可以先在其他端拿到 token 再粘贴进来。")
-                        OutlinedTextField(
-                            value = uiState.tokenInput,
-                            onValueChange = viewModel::updateToken,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Access Token") },
-                            minLines = 3,
-                        )
-                        Button(onClick = viewModel::saveManualToken) {
-                            Text("保存 token")
-                        }
-                    }
-                }
+                TechFlowFooter()
             }
+        }
+    }
+}
 
-            item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text("当前用户", style = MaterialTheme.typography.titleLarge)
-                        if (uiState.user == null) {
-                            Text("还没有拿到当前用户信息。保存 token 后可以点击刷新。")
-                        } else {
-                            ProfileSummary(uiState.user!!)
-                        }
-                        Button(onClick = viewModel::refreshProfile) {
-                            Text("刷新用户信息")
-                        }
-                        Button(onClick = viewModel::logout, enabled = !uiState.busy) {
-                            Text("退出登录")
-                        }
-                    }
-                }
+@Composable
+private fun LoginContent(
+    uiState: MeUiState,
+    viewModel: MeViewModel,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text(
+            text = "欢迎来到 SIPC TechFlow",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        OutlinedTextField(
+            value = uiState.email,
+            onValueChange = viewModel::updateEmail,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("邮箱") },
+            singleLine = true,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        )
+        OutlinedTextField(
+            value = uiState.password,
+            onValueChange = viewModel::updatePassword,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("密码") },
+            singleLine = true,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        )
+        Button(
+            onClick = viewModel::login,
+            enabled = !uiState.busy,
+            modifier = Modifier.fillMaxWidth(),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        ) {
+            Text(if (uiState.busy) "登录中..." else "登录")
+        }
+        Text(
+            text = "没有账户？先获取邀请码或在网页端完成注册后再登录。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun LoggedInContent(
+    uiState: MeUiState,
+    viewModel: MeViewModel,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "欢迎来到 SIPC TechFlow",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "就差一步，我们已经连接到你的账户信息，你可以继续浏览、提问和参与回答。",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        ProfileSummary(uiState.user!!)
+        Button(
+            onClick = viewModel::refreshProfile,
+            modifier = Modifier.fillMaxWidth(),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        ) {
+            Text("刷新用户信息")
+        }
+        Button(
+            onClick = viewModel::logout,
+            enabled = !uiState.busy,
+            modifier = Modifier.fillMaxWidth(),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        ) {
+            Text("退出登录")
+        }
+    }
+}
+
+@Composable
+private fun DeveloperConfigSection(
+    uiState: MeUiState,
+    viewModel: MeViewModel,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("连接设置", style = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(
+                value = uiState.baseUrl,
+                onValueChange = viewModel::updateBaseUrl,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("服务根地址") },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            )
+            Button(onClick = viewModel::saveBaseUrl, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
+                Text("保存地址")
+            }
+            OutlinedTextField(
+                value = uiState.tokenInput,
+                onValueChange = viewModel::updateToken,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Access Token") },
+                minLines = 3,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            )
+            Button(onClick = viewModel::saveManualToken, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
+                Text("保存 token")
             }
         }
     }
@@ -253,7 +309,7 @@ fun MeScreen(viewModel: MeViewModel) {
 
 @Composable
 private fun ProfileSummary(user: UserProfile) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("${user.displayName} (@${user.username})", style = MaterialTheme.typography.titleMedium)
         if (user.email.isNotBlank()) {
             Text(user.email)
