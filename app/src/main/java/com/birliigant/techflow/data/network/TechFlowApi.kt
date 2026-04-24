@@ -19,6 +19,12 @@ interface TechFlowApi {
     @GET("answer/api/v1/siteinfo")
     suspend fun getSiteInfo(): ApiEnvelope<SiteInfoDto>
 
+    @GET("answer/api/v1/tags/page")
+    suspend fun getTagsPage(
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<List<TagSectionDto>>
+
     @GET("answer/api/v1/question/page")
     suspend fun getQuestions(
         @Query("page") page: Int,
@@ -48,6 +54,32 @@ interface TechFlowApi {
 
     @GET("answer/api/v1/user/info")
     suspend fun getCurrentUser(): ApiEnvelope<UserDto?>
+
+    @GET("answer/api/v1/user/ranking")
+    suspend fun getCommunityUsers(): ApiEnvelope<CommunityUsersDto>
+
+    @GET("answer/api/v1/personal/user/info")
+    suspend fun getPublicUserProfile(@Query("username") username: String): ApiEnvelope<PublicUserProfileDto>
+
+    @GET("answer/api/v1/personal/question/page")
+    suspend fun getPersonalQuestionPage(
+        @Query("username") username: String,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<QuestionDto>>
+
+    @GET("answer/api/v1/personal/answer/page")
+    suspend fun getPersonalAnswerPage(
+        @Query("username") username: String,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<AnswerDto>>
+
+    @GET("answer/api/v1/personal/collection/page")
+    suspend fun getPersonalCollectionPage(
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<QuestionDto>>
 
     @GET("answer/api/v1/user/logout")
     suspend fun logout(): ApiEnvelope<JsonObject?>

@@ -29,10 +29,19 @@ import com.birliigant.techflow.ui.ask.AskScreen
 import com.birliigant.techflow.ui.ask.AskViewModel
 import com.birliigant.techflow.ui.detail.QuestionDetailScreen
 import com.birliigant.techflow.ui.detail.QuestionDetailViewModel
+import com.birliigant.techflow.ui.explore.TagsScreen
+import com.birliigant.techflow.ui.explore.TagsViewModel
+import com.birliigant.techflow.ui.explore.UsersScreen
+import com.birliigant.techflow.ui.explore.UsersViewModel
 import com.birliigant.techflow.ui.home.HomeScreen
 import com.birliigant.techflow.ui.home.HomeViewModel
 import com.birliigant.techflow.ui.me.MeScreen
 import com.birliigant.techflow.ui.me.MeViewModel
+import com.birliigant.techflow.ui.profile.ProfileScreen
+import com.birliigant.techflow.ui.profile.ProfileTab
+import com.birliigant.techflow.ui.profile.ProfileViewModel
+import com.birliigant.techflow.ui.settings.SettingsScreen
+import com.birliigant.techflow.ui.settings.SettingsViewModel
 
 private data class TopLevelRoute(
     val route: String,
@@ -44,9 +53,16 @@ private object Routes {
     const val home = "home"
     const val ask = "ask"
     const val me = "me"
+    const val tags = "tags"
+    const val users = "users"
+    const val settings = "settings"
     const val detailPattern = "detail/{questionId}"
+    const val profilePattern = "profile/{username}?tab={tab}"
 
     fun detail(questionId: String): String = "detail/${Uri.encode(questionId)}"
+    fun profile(username: String, tab: String = ProfileTab.OVERVIEW.routeValue): String {
+        return "profile/${Uri.encode(username)}?tab=${Uri.encode(tab)}"
+    }
 }
 
 private val topRoutes = listOf(
@@ -70,6 +86,13 @@ fun TechFlowApp(appContainer: AppContainer) {
             launchSingleTop = true
             restoreState = true
         }
+    }
+
+    fun openCurrentUserProfile(initialTab: String = ProfileTab.OVERVIEW.routeValue) {
+        val currentUser = appContainer.sessionRepository.currentUser.value
+        currentUser?.username?.takeIf { it.isNotBlank() }?.let { username ->
+            navController.navigate(Routes.profile(username, initialTab))
+        } ?: navigateToTopLevel(Routes.me)
     }
 
     Scaffold(
@@ -102,12 +125,18 @@ fun TechFlowApp(appContainer: AppContainer) {
                             HomeViewModel(
                                 siteRepository = appContainer.siteRepository,
                                 questionRepository = appContainer.questionRepository,
+                                userRepository = appContainer.userRepository,
                                 sessionRepository = appContainer.sessionRepository,
                             )
                         },
                     ),
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenMe = { navigateToTopLevel(Routes.me) },
+                    onOpenTags = { navController.navigate(Routes.tags) },
+                    onOpenUsers = { navController.navigate(Routes.users) },
+                    onOpenProfile = { openCurrentUserProfile() },
+                    onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
+                    onOpenSettings = { navController.navigate(Routes.settings) },
                 )
             }
 
@@ -136,6 +165,48 @@ fun TechFlowApp(appContainer: AppContainer) {
                             )
                         },
                     ),
+                    onOpenProfile = { openCurrentUserProfile() },
+                    onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
+                    onOpenSettings = { navController.navigate(Routes.settings) },
+                )
+            }
+
+            composable(Routes.settings) {
+                SettingsScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = appViewModelFactory {
+                            SettingsViewModel(
+                                userRepository = appContainer.userRepository,
+                                sessionRepository = appContainer.sessionRepository,
+                            )
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(Routes.tags) {
+                TagsScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = appViewModelFactory {
+                            TagsViewModel(appContainer.tagRepository)
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(Routes.users) {
+                UsersScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = appViewModelFactory {
+                            UsersViewModel(appContainer.userRepository)
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                    onUserClick = { username ->
+                        navController.navigate(Routes.profile(username))
+                    },
                 )
             }
 
@@ -155,6 +226,35 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onBack = { navController.popBackStack() },
+                )
+            }
+
+            composable(
+                route = Routes.profilePattern,
+                arguments = listOf(
+                    navArgument("username") { type = NavType.StringType },
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        defaultValue = ProfileTab.OVERVIEW.routeValue
+                    },
+                ),
+            ) { entry ->
+                val username = Uri.decode(entry.arguments?.getString("username").orEmpty())
+                val tab = ProfileTab.from(Uri.decode(entry.arguments?.getString("tab")))
+                ProfileScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        key = "profile-$username-${tab.routeValue}",
+                        factory = appViewModelFactory {
+                            ProfileViewModel(
+                                username = username,
+                                initialTab = tab,
+                                userRepository = appContainer.userRepository,
+                                sessionRepository = appContainer.sessionRepository,
+                            )
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                    onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                 )
             }
         }

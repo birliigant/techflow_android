@@ -1,12 +1,16 @@
 package com.birliigant.techflow.data.network
 
 import com.birliigant.techflow.core.model.AnswerItem
+import com.birliigant.techflow.core.model.CommunityUser
 import com.birliigant.techflow.core.model.CommentItem
+import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
+import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.core.model.TagItem
+import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.markdownPreview
 import com.google.gson.JsonElement
@@ -37,6 +41,22 @@ data class TagDto(
     @SerializedName("slug_name") val slugName: String? = null,
 )
 
+data class TagDetailDto(
+    @SerializedName("tag_id") val tagId: String? = null,
+    @SerializedName("display_name") val displayName: String? = null,
+    @SerializedName("slug_name") val slugName: String? = null,
+    val description: String? = null,
+    @SerializedName("follow_count") val followCount: Int? = null,
+    @SerializedName("question_count") val questionCount: Int? = null,
+    val partition: String? = null,
+)
+
+data class TagSectionDto(
+    val count: Int? = null,
+    val list: List<TagDetailDto>? = null,
+    val partition: String? = null,
+)
+
 data class UserDto(
     val id: String? = null,
     val username: String? = null,
@@ -47,6 +67,36 @@ data class UserDto(
     @SerializedName("question_count") val questionCount: Int? = null,
     @SerializedName("answer_count") val answerCount: Int? = null,
     @SerializedName("follow_count") val followCount: Int? = null,
+)
+
+data class CommunityUserDto(
+    val username: String? = null,
+    @SerializedName("display_name") val displayName: String? = null,
+    val avatar: JsonElement? = null,
+    val rank: Int? = null,
+    @SerializedName("vote_count") val voteCount: Int? = null,
+)
+
+data class CommunityUsersDto(
+    @SerializedName("users_with_the_most_reputation") val topReputationUsers: List<CommunityUserDto>? = null,
+    @SerializedName("users_with_the_most_vote") val topVoteUsers: List<CommunityUserDto>? = null,
+    val staffs: List<CommunityUserDto>? = null,
+)
+
+data class PublicUserProfileDto(
+    val username: String? = null,
+    @SerializedName("display_name") val displayName: String? = null,
+    val avatar: JsonElement? = null,
+    val rank: Int? = null,
+    @SerializedName("answer_count") val answerCount: Int? = null,
+    @SerializedName("question_count") val questionCount: Int? = null,
+    @SerializedName("follow_count") val followCount: Int? = null,
+    val bio: String? = null,
+    val website: String? = null,
+    val location: String? = null,
+    val profession: String? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+    @SerializedName(value = "last_login_date", alternate = ["last_login_at"]) val lastLoginAt: String? = null,
 )
 
 data class QuestionDto(
@@ -112,6 +162,26 @@ fun SiteInfoDto.toModel(): SiteInfo {
     )
 }
 
+fun TagSectionDto.toModel(): TagSection {
+    return TagSection(
+        title = partition.orEmpty().ifBlank { "未分组" },
+        tags = list.orEmpty().map { it.toModel() },
+    )
+}
+
+fun TagDetailDto.toModel(): TagDetail {
+    val resolvedName = displayName.orEmpty().ifBlank { slugName.orEmpty() }
+    return TagDetail(
+        id = tagId.orEmpty(),
+        name = resolvedName,
+        slug = slugName.orEmpty().ifBlank { resolvedName.lowercase() },
+        description = description.orEmpty(),
+        followCount = followCount ?: 0,
+        questionCount = questionCount ?: 0,
+        partition = partition.orEmpty(),
+    )
+}
+
 fun UserDto.toModel(): UserProfile {
     val resolvedUsername = username.orEmpty().ifBlank { "anonymous" }
     return UserProfile(
@@ -124,6 +194,36 @@ fun UserDto.toModel(): UserProfile {
         questionCount = questionCount ?: 0,
         answerCount = answerCount ?: 0,
         followCount = followCount ?: 0,
+    )
+}
+
+fun CommunityUserDto.toModel(): CommunityUser {
+    val resolvedUsername = username.orEmpty()
+    return CommunityUser(
+        username = resolvedUsername,
+        displayName = displayName.orEmpty().ifBlank { resolvedUsername },
+        avatar = avatar.toAvatarUrl(),
+        rank = rank ?: 0,
+        voteCount = voteCount ?: 0,
+    )
+}
+
+fun PublicUserProfileDto.toModel(): PublicUserProfile {
+    val resolvedUsername = username.orEmpty()
+    return PublicUserProfile(
+        username = resolvedUsername,
+        displayName = displayName.orEmpty().ifBlank { resolvedUsername },
+        avatar = avatar.toAvatarUrl(),
+        rank = rank ?: 0,
+        answerCount = answerCount ?: 0,
+        questionCount = questionCount ?: 0,
+        followCount = followCount ?: 0,
+        bio = bio.orEmpty(),
+        website = website.orEmpty(),
+        location = location.orEmpty(),
+        profession = profession.orEmpty(),
+        createdAt = createdAt.orEmpty(),
+        lastLoginAt = lastLoginAt.orEmpty(),
     )
 }
 

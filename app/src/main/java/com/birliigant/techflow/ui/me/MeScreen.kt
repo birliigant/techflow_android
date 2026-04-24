@@ -1,15 +1,23 @@
 package com.birliigant.techflow.ui.me
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
@@ -18,7 +26,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +39,7 @@ import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
+import com.birliigant.techflow.ui.common.AvatarBadge
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
@@ -113,9 +125,15 @@ class MeViewModel(
 }
 
 @Composable
-fun MeScreen(viewModel: MeViewModel) {
+fun MeScreen(
+    viewModel: MeViewModel,
+    onOpenProfile: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var userMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -138,7 +156,57 @@ fun MeScreen(viewModel: MeViewModel) {
                 TopBarTextAction(text = "登录", onClick = {})
                 TopBarFilledAction(text = "注册", onClick = {})
             } else {
-                TopBarTextAction(text = uiState.user?.displayName ?: "我的", onClick = {})
+                Box {
+                    Row(
+                        modifier = Modifier.clickable { userMenuExpanded = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        AvatarBadge(text = uiState.user?.displayName ?: "我")
+                        Text(
+                            text = uiState.user?.displayName ?: "我的",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "用户菜单",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = userMenuExpanded,
+                        onDismissRequest = { userMenuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("用户主页") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenProfile()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("收藏夹") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenCollections()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("账号设置") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenSettings()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("退出") },
+                            onClick = {
+                                userMenuExpanded = false
+                                viewModel.logout()
+                            },
+                        )
+                    }
+                }
             }
         }
         SnackbarHost(hostState = snackbarHostState)
@@ -150,7 +218,13 @@ fun MeScreen(viewModel: MeViewModel) {
                 if (uiState.user == null) {
                     LoginContent(uiState = uiState, viewModel = viewModel)
                 } else {
-                    LoggedInContent(uiState = uiState, viewModel = viewModel)
+                    LoggedInContent(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onOpenProfile = onOpenProfile,
+                        onOpenCollections = onOpenCollections,
+                        onOpenSettings = onOpenSettings,
+                    )
                 }
             }
             item {
@@ -209,6 +283,9 @@ private fun LoginContent(
 private fun LoggedInContent(
     uiState: MeUiState,
     viewModel: MeViewModel,
+    onOpenProfile: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -224,6 +301,34 @@ private fun LoggedInContent(
             style = MaterialTheme.typography.bodyLarge,
         )
         ProfileSummary(uiState.user!!)
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("更多功能", fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onOpenProfile,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("进入用户主页")
+                }
+                Button(
+                    onClick = onOpenCollections,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("查看收藏夹")
+                }
+                Button(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("打开账号设置")
+                }
+            }
+        }
         Button(
             onClick = viewModel::refreshProfile,
             modifier = Modifier.fillMaxWidth(),

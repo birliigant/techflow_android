@@ -1,10 +1,13 @@
 package com.birliigant.techflow.data.repository
 
 import com.birliigant.techflow.core.model.AppDefaults
+import com.birliigant.techflow.core.model.CommunityUser
+import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
+import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.normalizeBaseUrl
@@ -90,6 +93,17 @@ class SiteRepository(
     suspend fun getSiteInfo(): Result<SiteInfo> = runCatching {
         val envelope = apiClientProvider.api().getSiteInfo()
         envelope.requireData().toModel()
+    }
+}
+
+class TagRepository(
+    private val apiClientProvider: ApiClientProvider,
+) {
+    suspend fun getTagSections(
+        page: Int = 1,
+        pageSize: Int = 50,
+    ): Result<List<TagSection>> = runCatching {
+        apiClientProvider.api().getTagsPage(page, pageSize).requireData().map { it.toModel() }
     }
 }
 
@@ -188,6 +202,53 @@ class UserRepository(
 
         sessionRepository.setToken(token)
         refreshCurrentUser().getOrThrow()
+    }
+
+    suspend fun getCommunityUsers(): Result<List<CommunityUser>> = runCatching {
+        val payload = apiClientProvider.api().getCommunityUsers().requireData()
+        payload.staffs.orEmpty().map { it.toModel() }
+    }
+
+    suspend fun getPublicProfile(username: String): Result<PublicUserProfile> = runCatching {
+        apiClientProvider.api().getPublicUserProfile(username).requireData().toModel()
+    }
+
+    suspend fun getPersonalQuestions(
+        username: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<QuestionSummary>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalQuestionPage(username, page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toSummary() }
+    }
+
+    suspend fun getPersonalAnswers(
+        username: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<com.birliigant.techflow.core.model.AnswerItem>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalAnswerPage(username, page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toModel() }
+    }
+
+    suspend fun getPersonalCollections(
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<QuestionSummary>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalCollectionPage(page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toSummary() }
     }
 
     suspend fun logout() {

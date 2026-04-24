@@ -10,6 +10,7 @@ import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
+import com.birliigant.techflow.data.repository.TagRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.google.gson.Gson
 import com.tencent.mmkv.MMKV
@@ -34,6 +35,7 @@ class AppContainer(application: Application) {
     )
 
     val siteRepository = SiteRepository(apiClientProvider)
+    val tagRepository = TagRepository(apiClientProvider)
     val questionRepository = QuestionRepository(
         apiClientProvider = apiClientProvider,
         questionDao = database.questionDao(),

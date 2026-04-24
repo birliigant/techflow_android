@@ -13,6 +13,21 @@ data class TagItem(
     val slug: String = name.lowercase(),
 )
 
+data class TagSection(
+    val title: String,
+    val tags: List<TagDetail>,
+)
+
+data class TagDetail(
+    val id: String,
+    val name: String,
+    val slug: String,
+    val description: String,
+    val followCount: Int,
+    val questionCount: Int,
+    val partition: String,
+)
+
 data class UserProfile(
     val id: String,
     val username: String,
@@ -23,6 +38,30 @@ data class UserProfile(
     val questionCount: Int = 0,
     val answerCount: Int = 0,
     val followCount: Int = 0,
+)
+
+data class CommunityUser(
+    val username: String,
+    val displayName: String,
+    val avatar: String? = null,
+    val rank: Int = 0,
+    val voteCount: Int = 0,
+)
+
+data class PublicUserProfile(
+    val username: String,
+    val displayName: String,
+    val avatar: String? = null,
+    val rank: Int = 0,
+    val answerCount: Int = 0,
+    val questionCount: Int = 0,
+    val followCount: Int = 0,
+    val bio: String = "",
+    val website: String = "",
+    val location: String = "",
+    val profession: String = "",
+    val createdAt: String = "",
+    val lastLoginAt: String = "",
 )
 
 data class QuestionSummary(

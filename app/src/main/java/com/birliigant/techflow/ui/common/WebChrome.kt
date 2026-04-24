@@ -26,9 +26,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 
 @Composable
 fun TechFlowTopBar(
@@ -219,5 +221,24 @@ fun AvatarBadge(
                 fontWeight = FontWeight.Bold,
             )
         }
+    }
+}
+
+@Composable
+fun AvatarImage(
+    imageUrl: String?,
+    fallbackText: String,
+    modifier: Modifier = Modifier,
+) {
+    if (!imageUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = imageUrl,
+            contentDescription = fallbackText,
+            modifier = modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFFE5E7EB)),
+        )
+    } else {
+        AvatarBadge(text = fallbackText, modifier = modifier)
     }
 }

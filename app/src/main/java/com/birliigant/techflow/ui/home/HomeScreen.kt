@@ -15,9 +15,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +28,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +45,7 @@ import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
+import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarBadge
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
@@ -76,6 +83,7 @@ data class HomeUiState(
 class HomeViewModel(
     private val siteRepository: SiteRepository,
     private val questionRepository: QuestionRepository,
+    private val userRepository: UserRepository,
     sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -121,6 +129,12 @@ class HomeViewModel(
             }
         }
     }
+
+    fun logout() {
+        viewModelScope.launch {
+            userRepository.logout()
+        }
+    }
 }
 
 @Composable
@@ -128,6 +142,11 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onQuestionClick: (String) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenTags: () -> Unit,
+    onOpenUsers: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -147,6 +166,12 @@ fun HomeScreen(
                     selectedOrder = uiState.selectedOrder,
                     onOrderSelected = viewModel::onOrderSelected,
                     onOpenMe = onOpenMe,
+                    onOpenTags = onOpenTags,
+                    onOpenUsers = onOpenUsers,
+                    onOpenProfile = onOpenProfile,
+                    onOpenCollections = onOpenCollections,
+                    onOpenSettings = onOpenSettings,
+                    onLogout = viewModel::logout,
                 )
             }
 
@@ -209,7 +234,16 @@ private fun HomeHeader(
     selectedOrder: QuestionOrder,
     onOrderSelected: (QuestionOrder) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenTags: () -> Unit,
+    onOpenUsers: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenCollections: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onLogout: () -> Unit,
 ) {
+    var navigationMenuExpanded by remember { mutableStateOf(false) }
+    var userMenuExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,14 +253,88 @@ private fun HomeHeader(
         TechFlowTopBar(
             title = siteInfo?.name ?: "SIPC TechFlow",
             showMenu = true,
-            onMenuClick = {},
+            onMenuClick = { navigationMenuExpanded = true },
         ) {
             if (currentUser == null) {
                 TopBarTextAction(text = "登录", onClick = onOpenMe)
                 TopBarFilledAction(text = "注册", onClick = onOpenMe)
             } else {
-                AvatarBadge(text = currentUser.displayName)
+                Box {
+                    Row(
+                        modifier = Modifier.clickable { userMenuExpanded = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        AvatarBadge(text = currentUser.displayName)
+                        Text(
+                            text = currentUser.displayName,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "用户菜单",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = userMenuExpanded,
+                        onDismissRequest = { userMenuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("用户主页") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenProfile()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("收藏夹") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenCollections()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("账号设置") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenSettings()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("退出") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onLogout()
+                            },
+                        )
+                    }
+                }
             }
+        }
+
+        DropdownMenu(
+            expanded = navigationMenuExpanded,
+            onDismissRequest = { navigationMenuExpanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text("问题") },
+                onClick = { navigationMenuExpanded = false },
+            )
+            DropdownMenuItem(
+                text = { Text("标签") },
+                onClick = {
+                    navigationMenuExpanded = false
+                    onOpenTags()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("用户") },
+                onClick = {
+                    navigationMenuExpanded = false
+                    onOpenUsers()
+                },
+            )
         }
 
         Surface(
