@@ -6,21 +6,28 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,15 +35,17 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.birliigant.techflow.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -113,7 +122,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                HomeHero(
+                HomeHeader(
                     siteInfo = uiState.siteInfo,
                     baseUrl = uiState.baseUrl,
                     onRefresh = viewModel::refresh,
@@ -170,66 +179,123 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHero(
+private fun HomeHeader(
     siteInfo: SiteInfo?,
     baseUrl: String,
     onRefresh: () -> Unit,
     onOpenMe: () -> Unit,
 ) {
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primary)
             .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(28.dp),
+            .padding(top = 10.dp, bottom = 18.dp),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
-                        ),
-                    ),
-                )
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = 18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = siteInfo?.name ?: "TechFlow",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = siteInfo?.shortDescription?.ifBlank { siteInfo.description }
-                            ?: "基于 Apache Answer 接口文档生成的 Android 客户端",
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f),
-                    )
+                Surface(
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(9.dp),
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_brand_mark),
+                            contentDescription = "Logo",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
-                Row {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "刷新", tint = MaterialTheme.colorScheme.onPrimary)
-                    }
-                    IconButton(onClick = onOpenMe) {
-                        Icon(Icons.Outlined.Person, contentDescription = "我的", tint = MaterialTheme.colorScheme.onPrimary)
-                    }
+                Text(
+                    text = siteInfo?.name ?: "Answer",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = "刷新", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+                IconButton(onClick = onOpenMe) {
+                    Icon(Icons.Outlined.Person, contentDescription = "我的", tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
-            Text(
-                text = "当前服务: $baseUrl",
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
-            )
+        }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = "搜索",
+                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                )
+                Text(
+                    text = "Search questions, answers, tags",
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "All Questions",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = siteInfo?.shortDescription?.ifBlank { "当前服务: $baseUrl" } ?: "当前服务: $baseUrl",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    FilterStripButton(label = "More", icon = Icons.Outlined.MoreHoriz)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterPill(text = "Active", selected = true)
+                    FilterPill(text = "Newest", selected = false)
+                    FilterPill(text = "Frequent", selected = false)
+                }
+            }
         }
     }
 }
@@ -239,47 +305,112 @@ private fun QuestionCard(
     question: QuestionSummary,
     onClick: () -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clickable(onClick = onClick),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(18.dp),
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 text = question.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            Text(
+                text = "${question.authorName} · ${question.voteCount} votes · ${question.answerCount} answers · ${question.viewCount} views",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (question.excerpt.isNotBlank()) {
                 Text(
                     text = question.excerpt,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                question.tags.take(3).forEach { tag ->
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(tag.name) },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
+                question.tags.take(4).forEachIndexed { index, tag ->
+                    TagPill(
+                        text = tag.name,
+                        paletteIndex = index,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${question.authorName}  ·  ${question.answerCount} 回答  ·  ${question.viewCount} 浏览",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f))
         }
+    }
+}
+
+@Composable
+private fun FilterPill(text: String, selected: Boolean) {
+    FilterChip(
+        selected = selected,
+        onClick = {},
+        label = { Text(text) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            selectedLabelColor = MaterialTheme.colorScheme.primary,
+            containerColor = MaterialTheme.colorScheme.background,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    )
+}
+
+@Composable
+private fun RowScope.FilterStripButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun TagPill(
+    text: String,
+    paletteIndex: Int,
+) {
+    val background = when (paletteIndex % 4) {
+        0 -> MaterialTheme.colorScheme.surfaceVariant
+        1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        2 -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f)
+        else -> MaterialTheme.colorScheme.background
+    }
+    val content = when (paletteIndex % 4) {
+        0 -> MaterialTheme.colorScheme.onSurfaceVariant
+        1 -> MaterialTheme.colorScheme.primary
+        2 -> MaterialTheme.colorScheme.onSecondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = content,
+        )
     }
 }
