@@ -62,6 +62,16 @@ fun TechFlowApp(appContainer: AppContainer) {
     val currentDestination = backStackEntry?.destination
     val showBottomBar = currentDestination?.route != Routes.detailPattern
 
+    fun navigateToTopLevel(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets.navigationBars,
         bottomBar = {
@@ -71,15 +81,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                         val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                         NavigationBarItem(
                             selected = selected,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
+                            onClick = { navigateToTopLevel(item.route) },
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
                         )
@@ -105,7 +107,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
-                    onOpenMe = { navController.navigate(Routes.me) },
+                    onOpenMe = { navigateToTopLevel(Routes.me) },
                 )
             }
 
@@ -119,8 +121,8 @@ fun TechFlowApp(appContainer: AppContainer) {
                             )
                         },
                     ),
-                    onGoProfile = { navController.navigate(Routes.me) },
-                    onSubmitted = { navController.navigate(Routes.home) },
+                    onGoProfile = { navigateToTopLevel(Routes.me) },
+                    onSubmitted = { navigateToTopLevel(Routes.home) },
                 )
             }
 
