@@ -119,6 +119,7 @@ data class QuestionDto(
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
     val author: UserDto? = null,
+    val operator: UserDto? = null,
     val tags: List<TagDto>? = null,
 )
 
@@ -353,9 +354,11 @@ private fun QuestionDto.resolveAuthorName(): String {
     return userDisplayName.orEmpty()
         .ifBlank { userInfo?.displayName.orEmpty() }
         .ifBlank { author?.displayName.orEmpty() }
+        .ifBlank { operator?.displayName.orEmpty() }
         .ifBlank { username.orEmpty() }
         .ifBlank { userInfo?.username.orEmpty() }
         .ifBlank { author?.username.orEmpty() }
+        .ifBlank { operator?.username.orEmpty() }
         .ifBlank { "匿名作者" }
 }
 
@@ -363,11 +366,14 @@ private fun QuestionDto.resolveAuthorUsername(): String {
     return username.orEmpty()
         .ifBlank { userInfo?.username.orEmpty() }
         .ifBlank { author?.username.orEmpty() }
+        .ifBlank { operator?.username.orEmpty() }
         .ifBlank { resolveAuthorName() }
 }
 
 private fun QuestionDto.resolveAuthorAvatar(): String? {
-    return userInfo?.avatar.toAvatarUrl() ?: author?.avatar.toAvatarUrl()
+    return userInfo?.avatar.toAvatarUrl()
+        ?: author?.avatar.toAvatarUrl()
+        ?: operator?.avatar.toAvatarUrl()
 }
 
 private fun JsonElement?.toBooleanCompat(): Boolean {
@@ -388,7 +394,7 @@ private fun JsonElement?.toAvatarUrl(): String? {
     val value = this ?: return null
     if (value.isJsonNull) return null
     if (value.isJsonPrimitive) {
-        return value.asString.takeIf { it.isNotBlank() }
+        return value.asString.takeIf { it.isNotBlank() }?.normalizeRemoteUrl()
     }
     if (!value.isJsonObject) return null
 
@@ -408,4 +414,15 @@ private fun JsonElement?.toAvatarUrl(): String? {
     }
 
     return null
+}
+
+fun String.normalizeRemoteUrl(): String {
+    val raw = trim()
+    return when {
+        raw.isBlank() -> raw
+        raw.startsWith("http://") || raw.startsWith("https://") -> raw
+        raw.startsWith("//") -> "https:$raw"
+        raw.startsWith("/") -> "${com.birliigant.techflow.core.model.AppDefaults.defaultBaseUrl.removeSuffix("/")}$raw"
+        else -> raw
+    }
 }

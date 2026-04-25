@@ -28,9 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 
 @Composable
 fun TechFlowTopBar(
@@ -231,27 +232,49 @@ fun AvatarImage(
     modifier: Modifier = Modifier,
 ) {
     if (!imageUrl.isNullOrBlank()) {
-        AsyncImage(
+        SubcomposeAsyncImage(
             model = imageUrl,
             contentDescription = fallbackText,
             modifier = modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFFE5E7EB)),
+            contentScale = ContentScale.Crop,
+            loading = {
+                Surface(
+                    modifier = modifier,
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFE7ECF8),
+                ) {}
+            },
+            error = {
+                AvatarFallback(
+                    fallbackText = fallbackText,
+                    modifier = modifier,
+                )
+            },
         )
     } else {
-        Surface(
-            modifier = modifier,
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFFE7ECF8),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = fallbackText.take(1).uppercase(),
-                    color = Color(0xFF2A3D73),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+        AvatarFallback(fallbackText = fallbackText, modifier = modifier)
+    }
+}
+
+@Composable
+private fun AvatarFallback(
+    fallbackText: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFE7ECF8),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = fallbackText.take(1).uppercase(),
+                color = Color(0xFF2A3D73),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

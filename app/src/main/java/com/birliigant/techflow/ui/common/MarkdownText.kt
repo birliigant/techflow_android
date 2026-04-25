@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
@@ -25,6 +29,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
+import coil.compose.SubcomposeAsyncImage
+import com.birliigant.techflow.data.network.normalizeRemoteUrl
 
 private const val UrlAnnotation = "url"
 
@@ -32,6 +38,7 @@ private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: String) : MarkdownBlock
     data class Paragraph(val text: String) : MarkdownBlock
     data class Bullet(val text: String) : MarkdownBlock
+    data class Image(val alt: String, val url: String) : MarkdownBlock
 }
 
 @Composable
@@ -86,8 +93,47 @@ fun MarkdownText(
                         style = style,
                     )
                 }
+
+                is MarkdownBlock.Image -> MarkdownImage(
+                    url = block.url,
+                    alt = block.alt,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun MarkdownImage(
+    url: String,
+    alt: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+    ) {
+        SubcomposeAsyncImage(
+            model = url.normalizeRemoteUrl(),
+            contentDescription = alt,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            contentScale = ContentScale.FillWidth,
+            loading = {
+                Text(
+                    text = "图片加载中...",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            error = {
+                Text(
+                    text = alt.ifBlank { "图片加载失败" },
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            },
+        )
     }
 }
 
@@ -166,6 +212,7 @@ private fun looksLikeHtml(text: String): Boolean {
 private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
     val blocks = mutableListOf<MarkdownBlock>()
     val paragraph = mutableListOf<String>()
+    val imageRegex = Regex("^!\\[(.*?)]\\((.*?)\\)$")
 
     fun flushParagraph() {
         if (paragraph.isNotEmpty()) {
@@ -180,6 +227,15 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
             val line = rawLine.trimEnd()
             when {
                 line.isBlank() -> flushParagraph()
+                imageRegex.matches(line.trim()) -> {
+                    flushParagraph()
+                    val match = imageRegex.matchEntire(line.trim()) ?: return@forEach
+                    blocks += MarkdownBlock.Image(
+                        alt = match.groupValues[1],
+                        url = match.groupValues[2],
+                    )
+                }
+
                 line.startsWith("#") -> {
                     flushParagraph()
                     val level = line.takeWhile { it == '#' }.length.coerceIn(1, 3)

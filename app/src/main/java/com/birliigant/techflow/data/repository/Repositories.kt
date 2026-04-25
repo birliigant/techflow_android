@@ -17,6 +17,7 @@ import com.birliigant.techflow.data.local.QuestionDao
 import com.birliigant.techflow.data.network.ApiClientProvider
 import com.birliigant.techflow.data.network.ApiEnvelope
 import com.birliigant.techflow.data.network.EmailLoginRequest
+import com.birliigant.techflow.data.network.normalizeRemoteUrl
 import com.birliigant.techflow.data.network.toDetail
 import com.birliigant.techflow.data.network.toInfoRequest
 import com.birliigant.techflow.data.network.toModel
@@ -53,9 +54,7 @@ class SessionRepository(
     private val gson: Gson,
 ) {
     private val _token = MutableStateFlow(storage.decodeString(KEY_TOKEN).orEmpty())
-    private val _currentUser = MutableStateFlow(storage.decodeString(KEY_USER)?.let {
-        runCatching { gson.fromJson(it, UserProfile::class.java) }.getOrNull()
-    })
+    private val _currentUser = MutableStateFlow(storage.decodeString(KEY_USER)?.let(::decodeStoredUser))
 
     val token: StateFlow<String> = _token.asStateFlow()
     val currentUser: StateFlow<UserProfile?> = _currentUser.asStateFlow()
@@ -82,6 +81,29 @@ class SessionRepository(
     fun clearSession() {
         clearToken()
         setCurrentUser(null)
+    }
+
+    private fun decodeStoredUser(raw: String): UserProfile? {
+        val json = runCatching { gson.fromJson(raw, JsonObject::class.java) }.getOrNull() ?: return null
+        fun str(key: String): String = json.get(key)?.takeIf { !it.isJsonNull }?.asString.orEmpty()
+        fun int(key: String): Int = json.get(key)?.takeIf { !it.isJsonNull }?.asInt ?: 0
+
+        val username = str("username").ifBlank { "anonymous" }
+        return UserProfile(
+            id = str("id"),
+            username = username,
+            displayName = str("displayName").ifBlank { str("display_name") }.ifBlank { username },
+            email = str("email").ifBlank { str("e_mail") },
+            avatar = str("avatar").normalizeRemoteUrl().ifBlank { null },
+            rank = int("rank"),
+            questionCount = int("questionCount").takeIf { it != 0 } ?: int("question_count"),
+            answerCount = int("answerCount").takeIf { it != 0 } ?: int("answer_count"),
+            followCount = int("followCount").takeIf { it != 0 } ?: int("follow_count"),
+            bio = str("bio"),
+            website = str("website"),
+            location = str("location"),
+            profession = str("profession"),
+        )
     }
 
     companion object {

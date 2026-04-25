@@ -23,6 +23,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +52,12 @@ data class QuestionDetailUiState(
     val detail: QuestionDetail? = null,
     val errorMessage: String? = null,
 )
+
+private enum class AnswerSort(val label: String) {
+    SCORE("评分"),
+    NEWEST("最新"),
+    OLDEST("最旧"),
+}
 
 class QuestionDetailViewModel(
     private val questionId: String,
@@ -83,6 +92,7 @@ fun QuestionDetailScreen(
     onOpenUserProfile: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var answerSort by remember { mutableStateOf(AnswerSort.SCORE) }
 
     Column(
         modifier = Modifier
@@ -120,9 +130,13 @@ fun QuestionDetailScreen(
 
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionSwitch(text = "评分", selected = true, onClick = {})
-                        SectionSwitch(text = "最新", selected = false, onClick = {})
-                        SectionSwitch(text = "最旧", selected = false, onClick = {})
+                        AnswerSort.entries.forEach { sort ->
+                            SectionSwitch(
+                                text = sort.label,
+                                selected = answerSort == sort,
+                                onClick = { answerSort = sort },
+                            )
+                        }
                     }
                 }
 
@@ -141,7 +155,7 @@ fun QuestionDetailScreen(
                         }
                     }
                 } else {
-                    items(detail.answers, key = { it.id }) { answer ->
+                    items(detail.answers.sortedBy(answerSort), key = { it.id }) { answer ->
                         AnswerCard(
                             answer = answer,
                             onAuthorClick = { onOpenUserProfile(answer.authorUsername) },
@@ -182,6 +196,14 @@ fun QuestionDetailScreen(
                 }
             }
         }
+    }
+}
+
+private fun List<AnswerItem>.sortedBy(sort: AnswerSort): List<AnswerItem> {
+    return when (sort) {
+        AnswerSort.SCORE -> sortedWith(compareByDescending<AnswerItem> { it.voteCount }.thenByDescending { it.createdAt.toLongOrNull() ?: 0L })
+        AnswerSort.NEWEST -> sortedByDescending { it.createdAt.toLongOrNull() ?: 0L }
+        AnswerSort.OLDEST -> sortedBy { it.createdAt.toLongOrNull() ?: 0L }
     }
 }
 
