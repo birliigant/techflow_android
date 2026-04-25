@@ -41,15 +41,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class ConfigRepository(private val storage: MMKV) {
-    private val _baseUrl = MutableStateFlow(
-        normalizeBaseUrl(storage.decodeString(KEY_BASE_URL, AppDefaults.defaultBaseUrl).orEmpty()),
-    )
+    init {
+        // The app no longer exposes custom endpoint settings, so discard any stale
+        // base URL persisted by older builds to avoid routing users to dead intranet hosts.
+        storage.removeValueForKey(KEY_BASE_URL)
+    }
+
+    private val _baseUrl = MutableStateFlow(AppDefaults.defaultBaseUrl)
     val baseUrl: StateFlow<String> = _baseUrl.asStateFlow()
 
     fun saveBaseUrl(raw: String) {
         val normalized = normalizeBaseUrl(raw)
-        storage.encode(KEY_BASE_URL, normalized)
-        _baseUrl.value = normalized
+        val forcedUrl = AppDefaults.defaultBaseUrl
+        if (normalized != forcedUrl) {
+            storage.removeValueForKey(KEY_BASE_URL)
+        } else {
+            storage.encode(KEY_BASE_URL, forcedUrl)
+        }
+        _baseUrl.value = forcedUrl
     }
 
     companion object {
