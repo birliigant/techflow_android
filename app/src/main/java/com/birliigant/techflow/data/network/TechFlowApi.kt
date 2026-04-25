@@ -60,6 +60,9 @@ interface TechFlowApi {
     @POST("answer/api/v1/user/login/email")
     suspend fun loginWithEmail(@Body request: EmailLoginRequest): ApiEnvelope<JsonObject>
 
+    @POST("answer/api/v1/user/register/email")
+    suspend fun registerWithEmail(@Body request: EmailRegisterRequest): ApiEnvelope<JsonObject?>
+
     @GET("answer/api/v1/user/info")
     suspend fun getCurrentUser(): ApiEnvelope<UserDto?>
 

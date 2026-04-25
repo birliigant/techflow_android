@@ -14,6 +14,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
+import com.birliigant.techflow.ui.common.ProfessionDropdownField
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -251,69 +253,91 @@ private fun EditableProfileCard(
     uiState: SettingsUiState,
     viewModel: SettingsViewModel,
 ) {
-    ElevatedCard {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Text("个人资料", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            AvatarImage(
-                imageUrl = profile.avatar,
-                fallbackText = profile.displayName,
-                modifier = Modifier.size(92.dp),
-            )
-            OutlinedTextField(
-                value = uiState.displayName,
-                onValueChange = viewModel::updateDisplayName,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("显示名称") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = uiState.editedUsername,
-                onValueChange = viewModel::updateEditedUsername,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("用户名") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = uiState.profession,
-                onValueChange = viewModel::updateProfession,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("专业") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = uiState.location,
-                onValueChange = viewModel::updateLocation,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("地区") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = uiState.website,
-                onValueChange = viewModel::updateWebsite,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("网站") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = uiState.bio,
-                onValueChange = viewModel::updateBio,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("关于我") },
-                minLines = 4,
-            )
-            Text(
-                text = "头像当前为只读展示；显示名、用户名、专业、地区、网站和简介可直接保存。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Button(
-                onClick = viewModel::save,
-                enabled = !uiState.isSaving,
-                modifier = Modifier.fillMaxWidth(),
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        ElevatedCard {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(if (uiState.isSaving) "保存中..." else "保存修改")
+                Text("个人资料", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        AvatarImage(
+                            imageUrl = profile.avatar,
+                            fallbackText = profile.displayName,
+                            modifier = Modifier.size(92.dp),
+                        )
+                        Text(profile.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("@${profile.username}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
+        ElevatedCard {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                OutlinedTextField(
+                    value = uiState.displayName,
+                    onValueChange = viewModel::updateDisplayName,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("显示名称") },
+                    singleLine = true,
+                )
+                ProfessionDropdownField(
+                    value = uiState.profession,
+                    onValueChange = viewModel::updateProfession,
+                    label = "专业",
+                )
+                OutlinedTextField(
+                    value = uiState.editedUsername,
+                    onValueChange = viewModel::updateEditedUsername,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("用户名") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = uiState.bio,
+                    onValueChange = viewModel::updateBio,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("关于我（选填）") },
+                    minLines = 4,
+                )
+                OutlinedTextField(
+                    value = uiState.website,
+                    onValueChange = viewModel::updateWebsite,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("网站（选填）") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = uiState.location,
+                    onValueChange = viewModel::updateLocation,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("位置（选填）") },
+                    singleLine = true,
+                )
+                Text(
+                    text = "头像当前仍为只读展示；显示名、用户名、专业、地区、网站和简介可直接保存。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = viewModel::save,
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (uiState.isSaving) "保存中..." else "保存")
+                }
             }
         }
     }

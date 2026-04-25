@@ -145,6 +145,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onQuestionClick: (String) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenRegister: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
@@ -171,6 +172,7 @@ fun HomeScreen(
                     selectedOrder = uiState.selectedOrder,
                     onOrderSelected = viewModel::onOrderSelected,
                     onOpenMe = onOpenMe,
+                    onOpenRegister = onOpenRegister,
                     onOpenSearch = onOpenSearch,
                     onOpenTags = onOpenTags,
                     onOpenUsers = onOpenUsers,
@@ -241,6 +243,7 @@ private fun HomeHeader(
     selectedOrder: QuestionOrder,
     onOrderSelected: (QuestionOrder) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenRegister: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
@@ -266,7 +269,7 @@ private fun HomeHeader(
             ) {
                 if (currentUser == null) {
                     TopBarTextAction(text = "登录", onClick = onOpenMe)
-                    TopBarFilledAction(text = "注册", onClick = onOpenMe)
+                    TopBarFilledAction(text = "注册", onClick = onOpenRegister)
                 } else {
                     Box {
                         Row(

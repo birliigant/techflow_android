@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -178,6 +179,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel,
     onBack: () -> Unit,
     onQuestionClick: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -208,7 +210,11 @@ fun ProfileScreen(
         ) {
             uiState.profile?.let { profile ->
                 item {
-                    ProfileHeroCard(profile = profile)
+                    ProfileHeroCard(
+                        profile = profile,
+                        isCurrentUser = uiState.currentUsername == profile.username,
+                        onOpenSettings = onOpenSettings,
+                    )
                 }
                 item {
                     ProfileTabRow(
@@ -275,7 +281,11 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeroCard(profile: PublicUserProfile) {
+private fun ProfileHeroCard(
+    profile: PublicUserProfile,
+    isCurrentUser: Boolean,
+    onOpenSettings: () -> Unit,
+) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Surface(
@@ -330,7 +340,7 @@ private fun ProfileHeroCard(profile: PublicUserProfile) {
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ProfileStatChip(label = "声望", value = profile.followCount.toString())
+                    ProfileStatChip(label = "声望", value = profile.rank.toString())
                     ProfileStatChip(label = "回答", value = profile.answerCount.toString())
                     ProfileStatChip(label = "问题", value = profile.questionCount.toString())
                 }
@@ -341,6 +351,11 @@ private fun ProfileHeroCard(profile: PublicUserProfile) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                }
+                if (isCurrentUser) {
+                    Button(onClick = onOpenSettings) {
+                        Text("编辑资料")
+                    }
                 }
             }
         }
@@ -450,6 +465,10 @@ private fun OverviewSection(
                     )
                 }
             }
+        }
+
+        OverviewCard(title = "最近的徽章") {
+            EmptyLabel(text = "徽章数据暂未接入公开接口，后续可以继续补齐。")
         }
     }
 }

@@ -157,6 +157,13 @@ data class EmailLoginRequest(
     @SerializedName("captcha_code") val captchaCode: String? = null,
 )
 
+data class EmailRegisterRequest(
+    val name: String,
+    @SerializedName("e_mail") val email: String,
+    @SerializedName("pass") val password: String,
+    val profession: String? = null,
+)
+
 data class CreateQuestionRequest(
     val title: String,
     val content: String,

@@ -16,6 +16,7 @@ import com.birliigant.techflow.data.local.CachedQuestionEntity
 import com.birliigant.techflow.data.local.QuestionDao
 import com.birliigant.techflow.data.network.ApiClientProvider
 import com.birliigant.techflow.data.network.ApiEnvelope
+import com.birliigant.techflow.data.network.EmailRegisterRequest
 import com.birliigant.techflow.data.network.EmailLoginRequest
 import com.birliigant.techflow.data.network.normalizeRemoteUrl
 import com.birliigant.techflow.data.network.toDetail
@@ -241,6 +242,22 @@ class UserRepository(
 
         sessionRepository.setToken(token)
         refreshCurrentUser().getOrThrow()
+    }
+
+    suspend fun registerWithEmail(
+        name: String,
+        email: String,
+        password: String,
+        profession: String,
+    ): Result<Unit> = runCatching {
+        apiClientProvider.api().registerWithEmail(
+            EmailRegisterRequest(
+                name = name,
+                email = email,
+                password = password,
+                profession = profession.ifBlank { null },
+            ),
+        ).requireNullableData()
     }
 
     suspend fun updateProfile(update: UserProfileUpdate): Result<UserProfile?> = runCatching {

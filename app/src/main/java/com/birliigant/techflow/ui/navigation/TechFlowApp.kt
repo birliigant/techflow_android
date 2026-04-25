@@ -28,6 +28,8 @@ import com.birliigant.techflow.app.appViewModelFactory
 import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.ui.ask.AskScreen
 import com.birliigant.techflow.ui.ask.AskViewModel
+import com.birliigant.techflow.ui.auth.RegisterScreen
+import com.birliigant.techflow.ui.auth.RegisterViewModel
 import com.birliigant.techflow.ui.detail.QuestionDetailScreen
 import com.birliigant.techflow.ui.detail.QuestionDetailViewModel
 import com.birliigant.techflow.ui.explore.TagFeedScreen
@@ -58,6 +60,7 @@ private object Routes {
     const val home = "home"
     const val ask = "ask"
     const val me = "me"
+    const val register = "register"
     const val searchPattern = "search?q={q}"
     const val tags = "tags"
     const val tagPattern = "tag/{slug}?name={name}&partition={partition}&questionCount={questionCount}&followCount={followCount}"
@@ -155,6 +158,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     ),
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenMe = { navigateToTopLevel(Routes.me) },
+                    onOpenRegister = { navController.navigate(Routes.register) },
                     onOpenSearch = { navController.navigate(Routes.search()) },
                     onOpenTags = { navController.navigate(Routes.tags) },
                     onOpenUsers = { navController.navigate(Routes.users) },
@@ -193,6 +197,18 @@ fun TechFlowApp(appContainer: AppContainer) {
                     onOpenProfile = { openCurrentUserProfile() },
                     onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
                     onOpenSettings = { navController.navigate(Routes.settings) },
+                    onOpenRegister = { navController.navigate(Routes.register) },
+                )
+            }
+
+            composable(Routes.register) {
+                RegisterScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = appViewModelFactory {
+                            RegisterViewModel(appContainer.userRepository)
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
                 )
             }
 
@@ -358,6 +374,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     ),
                     onBack = { navController.popBackStack() },
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
+                    onOpenSettings = { navController.navigate(Routes.settings) },
                 )
             }
         }
