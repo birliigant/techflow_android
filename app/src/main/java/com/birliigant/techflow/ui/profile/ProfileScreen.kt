@@ -190,6 +190,7 @@ fun ProfileScreen(
     ) {
         TechFlowTopBar(
             title = uiState.profile?.displayName ?: "用户主页",
+            dense = true,
             onBackClick = onBack,
         )
 
@@ -205,8 +206,8 @@ fun ProfileScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             uiState.profile?.let { profile ->
                 item {
@@ -291,37 +292,37 @@ private fun ProfileHeroCard(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(92.dp),
+                    .height(64.dp),
                 color = MaterialTheme.colorScheme.primary,
             ) {}
 
             Column(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(
-                    modifier = Modifier.padding(top = 34.dp),
+                    modifier = Modifier.padding(top = 18.dp),
                     verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AvatarImage(
                         imageUrl = profile.avatar,
                         fallbackText = profile.displayName,
-                        modifier = Modifier.size(92.dp),
+                        modifier = Modifier.size(76.dp),
                     )
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
                             text = profile.displayName,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text = "@${profile.username}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                         if (profile.profession.isNotBlank()) {
                             Surface(
@@ -330,7 +331,7 @@ private fun ProfileHeroCard(
                             ) {
                                 Text(
                                     text = profile.profession,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold,
                                 )

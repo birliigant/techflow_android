@@ -38,6 +38,7 @@ fun TechFlowTopBar(
     title: String,
     modifier: Modifier = Modifier,
     showMenu: Boolean = false,
+    dense: Boolean = false,
     onMenuClick: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
@@ -50,7 +51,10 @@ fun TechFlowTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 10.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = if (dense) 12.dp else 10.dp,
+                    vertical = if (dense) 8.dp else 12.dp,
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -83,7 +87,7 @@ fun TechFlowTopBar(
                 Text(
                     text = title,
                     color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = if (dense) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium,
                 )
             }
