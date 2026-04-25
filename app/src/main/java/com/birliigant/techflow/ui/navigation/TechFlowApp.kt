@@ -194,7 +194,10 @@ fun TechFlowApp(appContainer: AppContainer) {
                             )
                         },
                     ),
+                    sessionRepository = appContainer.sessionRepository,
+                    userRepository = appContainer.userRepository,
                     onOpenProfile = { openCurrentUserProfile() },
+                    onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
                     onOpenSettings = { navController.navigate(Routes.settings) },
                     onOpenRegister = { navController.navigate(Routes.register) },

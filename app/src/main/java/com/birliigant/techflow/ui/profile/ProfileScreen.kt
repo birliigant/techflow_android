@@ -53,7 +53,11 @@ enum class ProfileTab(val routeValue: String, val label: String) {
     OVERVIEW("overview", "概览"),
     ANSWERS("answers", "回答"),
     QUESTIONS("questions", "问题"),
-    COLLECTIONS("collections", "收藏");
+    COLLECTIONS("collections", "收藏"),
+    REPUTATION("reputation", "声望"),
+    COMMENTS("comments", "评论"),
+    VOTES("votes", "得票"),
+    BADGES("badges", "徽章");
 
     companion object {
         fun from(value: String?): ProfileTab {
@@ -170,6 +174,14 @@ class ProfileViewModel(
                         )
                     }
                 }
+
+                ProfileTab.REPUTATION,
+                ProfileTab.COMMENTS,
+                ProfileTab.VOTES,
+                ProfileTab.BADGES,
+                -> {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
             }
         }
     }
@@ -205,77 +217,131 @@ fun ProfileScreen(
             return
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            uiState.profile?.let { profile ->
-                item {
-                    ProfileHeroCard(
-                        profile = profile,
-                        isCurrentUser = uiState.currentUsername == profile.username,
-                        onOpenSettings = onOpenSettings,
-                    )
+        ProfileContent(
+            uiState = uiState,
+            onTabSelected = viewModel::onTabSelected,
+            onQuestionClick = onQuestionClick,
+            onOpenSettings = onOpenSettings,
+        )
+    }
+}
+
+@Composable
+fun ProfileContent(
+    uiState: ProfileUiState,
+    onTabSelected: (ProfileTab) -> Unit,
+    onQuestionClick: (String) -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    showHeroEditButton: Boolean = true,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        uiState.profile?.let { profile ->
+            item {
+                ProfileHeroCard(
+                    profile = profile,
+                    isCurrentUser = uiState.currentUsername == profile.username,
+                    onOpenSettings = onOpenSettings,
+                    showEditButton = showHeroEditButton,
+                )
+            }
+            item {
+                ProfileTabRow(
+                    selectedTab = uiState.selectedTab,
+                    onTabSelected = onTabSelected,
+                )
+            }
+        }
+
+        if (uiState.errorMessage != null) {
+            item {
+                EmptyState(text = uiState.errorMessage.orEmpty())
+            }
+        }
+
+        when (uiState.selectedTab) {
+            ProfileTab.OVERVIEW -> {
+                uiState.profile?.let { profile ->
+                    item {
+                        OverviewSection(
+                            profile = profile,
+                            answers = uiState.answers.take(3),
+                            questions = uiState.questions.take(3),
+                            onQuestionClick = onQuestionClick,
+                        )
+                    }
                 }
+            }
+
+            ProfileTab.QUESTIONS -> {
+                if (uiState.questions.isEmpty()) {
+                    item { EmptyState(text = "这个用户还没有公开的问题内容。") }
+                } else {
+                    itemsIndexed(uiState.questions) { _, item ->
+                        QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
+                    }
+                }
+            }
+
+            ProfileTab.ANSWERS -> {
+                if (uiState.answers.isEmpty()) {
+                    item { EmptyState(text = "这个用户还没有公开的回答内容。") }
+                } else {
+                    itemsIndexed(uiState.answers) { _, item ->
+                        AnswerRow(item = item)
+                    }
+                }
+            }
+
+            ProfileTab.COLLECTIONS -> {
+                if (uiState.currentUsername != uiState.profile?.username) {
+                    item { EmptyState(text = "收藏夹仅对当前登录用户开放。") }
+                } else if (uiState.collections.isEmpty()) {
+                    item { EmptyState(text = "还没有收藏内容。") }
+                } else {
+                    itemsIndexed(uiState.collections) { _, item ->
+                        QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
+                    }
+                }
+            }
+
+            ProfileTab.REPUTATION -> {
                 item {
-                    ProfileTabRow(
-                        selectedTab = uiState.selectedTab,
-                        onTabSelected = viewModel::onTabSelected,
+                    ProfilePlaceholderCard(
+                        title = "声望",
+                        text = "当前已展示总声望值，详细声望记录接口暂未接入，后续可以继续补齐。",
                     )
                 }
             }
 
-            if (uiState.errorMessage != null) {
+            ProfileTab.COMMENTS -> {
                 item {
-                    EmptyState(text = uiState.errorMessage.orEmpty())
+                    ProfilePlaceholderCard(
+                        title = "评论",
+                        text = "评论列表接口暂未接入，后续可以补上当前用户评论时间线。",
+                    )
                 }
             }
 
-            when (uiState.selectedTab) {
-                ProfileTab.OVERVIEW -> {
-                    uiState.profile?.let { profile ->
-                        item {
-                            OverviewSection(
-                                profile = profile,
-                                answers = uiState.answers.take(3),
-                                questions = uiState.questions.take(3),
-                                onQuestionClick = onQuestionClick,
-                            )
-                        }
-                    }
+            ProfileTab.VOTES -> {
+                item {
+                    ProfilePlaceholderCard(
+                        title = "得票",
+                        text = "得票明细接口暂未接入，后续可以补上投票和获赞记录。",
+                    )
                 }
+            }
 
-                ProfileTab.QUESTIONS -> {
-                    if (uiState.questions.isEmpty()) {
-                        item { EmptyState(text = "这个用户还没有公开的问题内容。") }
-                    } else {
-                        itemsIndexed(uiState.questions) { _, item ->
-                            QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
-                        }
-                    }
-                }
-
-                ProfileTab.ANSWERS -> {
-                    if (uiState.answers.isEmpty()) {
-                        item { EmptyState(text = "这个用户还没有公开的回答内容。") }
-                    } else {
-                        itemsIndexed(uiState.answers) { _, item ->
-                            AnswerRow(item = item)
-                        }
-                    }
-                }
-
-                ProfileTab.COLLECTIONS -> {
-                    if (uiState.currentUsername != uiState.profile?.username) {
-                        item { EmptyState(text = "收藏夹仅对当前登录用户开放。") }
-                    } else if (uiState.collections.isEmpty()) {
-                        item { EmptyState(text = "还没有收藏内容。") }
-                    } else {
-                        itemsIndexed(uiState.collections) { _, item ->
-                            QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
-                        }
-                    }
+            ProfileTab.BADGES -> {
+                item {
+                    ProfilePlaceholderCard(
+                        title = "徽章",
+                        text = "徽章公开接口暂未接入，当前先保留与网页端一致的入口位置。",
+                    )
                 }
             }
         }
@@ -287,6 +353,7 @@ private fun ProfileHeroCard(
     profile: PublicUserProfile,
     isCurrentUser: Boolean,
     onOpenSettings: () -> Unit,
+    showEditButton: Boolean,
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -354,7 +421,7 @@ private fun ProfileHeroCard(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
-                if (isCurrentUser) {
+                if (isCurrentUser && showEditButton) {
                     Button(onClick = onOpenSettings) {
                         Text("编辑资料")
                     }
@@ -669,5 +736,15 @@ private fun EmptyState(text: String) {
             modifier = Modifier.padding(20.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun ProfilePlaceholderCard(
+    title: String,
+    text: String,
+) {
+    OverviewCard(title = title) {
+        EmptyLabel(text = text)
     }
 }
