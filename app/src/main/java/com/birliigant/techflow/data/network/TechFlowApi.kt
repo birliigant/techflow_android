@@ -26,6 +26,13 @@ interface TechFlowApi {
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<List<TagSectionDto>>
 
+    @GET("answer/api/v1/search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<SearchItemDto>>
+
     @GET("answer/api/v1/question/page")
     suspend fun getQuestions(
         @Query("page") page: Int,

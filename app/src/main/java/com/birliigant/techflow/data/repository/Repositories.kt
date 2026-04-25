@@ -21,6 +21,7 @@ import com.birliigant.techflow.data.network.normalizeRemoteUrl
 import com.birliigant.techflow.data.network.toDetail
 import com.birliigant.techflow.data.network.toInfoRequest
 import com.birliigant.techflow.data.network.toModel
+import com.birliigant.techflow.data.network.toQuestionSummaryOrNull
 import com.birliigant.techflow.data.network.toProfessionRequest
 import com.birliigant.techflow.data.network.toRequest
 import com.birliigant.techflow.data.network.toSummary
@@ -136,6 +137,19 @@ class QuestionRepository(
     private val apiClientProvider: ApiClientProvider,
     private val questionDao: QuestionDao,
 ) {
+    suspend fun searchQuestions(
+        query: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<QuestionSummary>> = runCatching {
+        apiClientProvider.api()
+            .search(query = query, page = page, pageSize = pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .mapNotNull { it.toQuestionSummaryOrNull() }
+    }
+
     suspend fun getQuestionPage(
         page: Int = 1,
         pageSize: Int = 20,

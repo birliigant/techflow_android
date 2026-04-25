@@ -3,24 +3,30 @@ package com.birliigant.techflow.ui.profile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,11 +34,11 @@ import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.AnswerItem
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.markdownPreview
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.MarkdownText
-import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -185,11 +191,11 @@ fun ProfileScreen(
         )
 
         if (uiState.isLoading && uiState.profile == null) {
-            Column(
+            Box(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
+                contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator(modifier = Modifier.padding(horizontal = 24.dp))
+                CircularProgressIndicator()
             }
             return
         }
@@ -197,30 +203,23 @@ fun ProfileScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             uiState.profile?.let { profile ->
                 item {
-                    ProfileHeader(profile = profile)
+                    ProfileHeroCard(profile = profile)
                 }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProfileTab.entries.forEach { tab ->
-                            SectionSwitch(
-                                text = tab.label,
-                                selected = uiState.selectedTab == tab,
-                                onClick = { viewModel.onTabSelected(tab) },
-                            )
-                        }
-                    }
+                    ProfileTabRow(
+                        selectedTab = uiState.selectedTab,
+                        onTabSelected = viewModel::onTabSelected,
+                    )
                 }
             }
 
             if (uiState.errorMessage != null) {
                 item {
-                    ElevatedCard {
-                        Text(uiState.errorMessage.orEmpty(), modifier = Modifier.padding(20.dp))
-                    }
+                    EmptyState(text = uiState.errorMessage.orEmpty())
                 }
             }
 
@@ -240,7 +239,7 @@ fun ProfileScreen(
 
                 ProfileTab.QUESTIONS -> {
                     if (uiState.questions.isEmpty()) {
-                        item { EmptyState(text = "没有找到相关的问题内容。") }
+                        item { EmptyState(text = "这个用户还没有公开的问题内容。") }
                     } else {
                         items(uiState.questions, key = { it.id }) { item ->
                             QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
@@ -250,7 +249,7 @@ fun ProfileScreen(
 
                 ProfileTab.ANSWERS -> {
                     if (uiState.answers.isEmpty()) {
-                        item { EmptyState(text = "没有找到相关的回答内容。") }
+                        item { EmptyState(text = "这个用户还没有公开的回答内容。") }
                     } else {
                         items(uiState.answers, key = { it.id }) { item ->
                             AnswerRow(item = item)
@@ -275,27 +274,132 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(profile: PublicUserProfile) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
+private fun ProfileHeroCard(profile: PublicUserProfile) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(92.dp),
+                color = MaterialTheme.colorScheme.primary,
+            ) {}
+
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(top = 34.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    AvatarImage(
+                        imageUrl = profile.avatar,
+                        fallbackText = profile.displayName,
+                        modifier = Modifier.size(92.dp),
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = profile.displayName,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "@${profile.username}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        if (profile.profession.isNotBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                shape = MaterialTheme.shapes.small,
+                            ) {
+                                Text(
+                                    text = profile.profession,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ProfileStatChip(label = "声望", value = profile.followCount.toString())
+                    ProfileStatChip(label = "回答", value = profile.answerCount.toString())
+                    ProfileStatChip(label = "问题", value = profile.questionCount.toString())
+                }
+
+                if (profile.bio.isNotBlank()) {
+                    Text(
+                        text = markdownPreview(profile.bio, maxLength = 120),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileStatChip(
+    label: String,
+    value: String,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        shape = MaterialTheme.shapes.medium,
     ) {
-        AvatarImage(
-            imageUrl = profile.avatar,
-            fallbackText = profile.displayName,
-            modifier = Modifier.size(96.dp),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(profile.displayName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("@${profile.username}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = "${profile.followCount} 声望  ${profile.answerCount} 个回答  ${profile.questionCount} 个问题",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
             )
-            if (profile.profession.isNotBlank()) {
-                Text(profile.profession, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = label,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileTabRow(
+    selectedTab: ProfileTab,
+    onTabSelected: (ProfileTab) -> Unit,
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(ProfileTab.entries, key = { it.routeValue }) { tab ->
+            Surface(
+                color = if (tab == selectedTab) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                shape = MaterialTheme.shapes.small,
+                shadowElevation = if (tab == selectedTab) 2.dp else 0.dp,
+                modifier = Modifier.clickable { onTabSelected(tab) },
+            ) {
+                Text(
+                    text = tab.label,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    color = if (tab == selectedTab) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
@@ -308,55 +412,155 @@ private fun OverviewSection(
     questions: List<QuestionSummary>,
     onQuestionClick: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        ElevatedCard {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("关于我", fontWeight = FontWeight.Bold)
-                MarkdownText(profile.bio.ifBlank { "// Hello, World!" })
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        OverviewCard(title = "关于我") {
+            MarkdownText(profile.bio.ifBlank { "// Hello, World!" })
+        }
+
+        OverviewCard(title = "状态") {
+            InfoLine(label = "加入时间", value = profile.createdAt.ifBlank { "未知" })
+            InfoLine(label = "最近登录", value = profile.lastLoginAt.ifBlank { "未知" })
+            if (profile.location.isNotBlank()) {
+                InfoLine(label = "地区", value = profile.location)
+            }
+            if (profile.website.isNotBlank()) {
+                InfoLine(label = "网站", value = profile.website)
             }
         }
-        ElevatedCard {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("状态", fontWeight = FontWeight.Bold)
-                Text("加入于 ${profile.createdAt.ifBlank { "未知" }}，最近登录 ${profile.lastLoginAt.ifBlank { "未知" }}")
-                if (profile.location.isNotBlank()) {
-                    Text("地区：${profile.location}")
-                }
-                if (profile.website.isNotBlank()) {
-                    Text("网站：${profile.website}")
-                }
-            }
-        }
-        ElevatedCard {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("高分回答", fontWeight = FontWeight.Bold)
-                if (answers.isEmpty()) {
-                    Text("没有找到相关的内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    answers.forEach { answer ->
-                        MarkdownText(
-                            content = answer.content,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
+
+        OverviewCard(title = "高分回答") {
+            if (answers.isEmpty()) {
+                EmptyLabel(text = "没有找到相关的回答内容。")
+            } else {
+                answers.forEach { answer ->
+                    AnswerPreviewCard(item = answer)
                 }
             }
         }
-        ElevatedCard {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("高分问题", fontWeight = FontWeight.Bold)
-                if (questions.isEmpty()) {
-                    Text("没有找到相关的内容。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    questions.forEach { question ->
-                        Text(
-                            text = question.title,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { onQuestionClick(question.id) },
-                        )
-                    }
+
+        OverviewCard(title = "高分问题") {
+            if (questions.isEmpty()) {
+                EmptyLabel(text = "没有找到相关的问题内容。")
+            } else {
+                questions.forEach { question ->
+                    QuestionPreviewCard(
+                        item = question,
+                        onClick = { onQuestionClick(question.id) },
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OverviewCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                content()
+            },
+        )
+    }
+}
+
+@Composable
+private fun InfoLine(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.padding(start = 16.dp),
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun QuestionPreviewCard(
+    item: QuestionSummary,
+    onClick: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = item.title,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "${item.voteCount} 点赞 · ${item.answerCount} 回答 · ${item.viewCount} 浏览",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnswerPreviewCard(item: AnswerItem) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (item.accepted) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    Text(
+                        text = "已采纳",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            Text(
+                text = markdownPreview(item.content, maxLength = 140),
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${item.voteCount} 赞 · ${item.createdAt.ifBlank { "刚刚" }}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
@@ -372,13 +576,26 @@ private fun QuestionRow(
             .clickable(onClick = onClick),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(item.title, fontWeight = FontWeight.SemiBold)
             Text(
-                text = "${item.answerCount} 回答 · ${item.viewCount} 浏览",
+                text = item.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            if (item.excerpt.isNotBlank()) {
+                Text(
+                    text = item.excerpt,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = "${item.voteCount} 点赞 · ${item.answerCount} 回答 · ${item.viewCount} 浏览 · ${item.createdAt.ifBlank { "刚刚" }}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
@@ -388,21 +605,43 @@ private fun QuestionRow(
 private fun AnswerRow(item: AnswerItem) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(item.content)
+            if (item.accepted) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    Text(
+                        text = "已采纳回答",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            MarkdownText(markdownPreview(item.content, maxLength = 220))
             Text(
                 text = "${item.voteCount} 赞 · ${item.createdAt.ifBlank { "刚刚" }}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
 }
 
 @Composable
+private fun EmptyLabel(text: String) {
+    Text(
+        text = text,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
 private fun EmptyState(text: String) {
-    ElevatedCard {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = text,
             modifier = Modifier.padding(20.dp),

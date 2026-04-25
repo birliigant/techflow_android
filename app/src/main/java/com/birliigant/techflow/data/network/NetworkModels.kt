@@ -58,6 +58,11 @@ data class TagSectionDto(
     val partition: String? = null,
 )
 
+data class SearchItemDto(
+    @SerializedName("object_type") val objectType: String? = null,
+    @SerializedName("object") val payload: QuestionDto? = null,
+)
+
 data class UserDto(
     val id: String? = null,
     val username: String? = null,
@@ -198,6 +203,11 @@ fun TagDetailDto.toModel(): TagDetail {
         questionCount = questionCount ?: 0,
         partition = partition.orEmpty(),
     )
+}
+
+fun SearchItemDto.toQuestionSummaryOrNull(): QuestionSummary? {
+    if (objectType != "question") return null
+    return payload?.toSummary()
 }
 
 fun UserDto.toModel(): UserProfile {

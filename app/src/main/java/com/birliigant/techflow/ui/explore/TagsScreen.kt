@@ -1,6 +1,7 @@
 package com.birliigant.techflow.ui.explore
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,6 +71,7 @@ class TagsViewModel(
 fun TagsScreen(
     viewModel: TagsViewModel,
     onBack: () -> Unit,
+    onTagClick: (TagDetail) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -109,7 +112,10 @@ fun TagsScreen(
             }
 
             items(uiState.sections, key = { it.title }) { section ->
-                TagSectionCard(section = section)
+                TagSectionCard(
+                    section = section,
+                    onTagClick = onTagClick,
+                )
             }
         }
     }
@@ -117,7 +123,10 @@ fun TagsScreen(
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun TagSectionCard(section: TagSection) {
+private fun TagSectionCard(
+    section: TagSection,
+    onTagClick: (TagDetail) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = section.title,
@@ -132,7 +141,10 @@ private fun TagSectionCard(section: TagSection) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 section.tags.forEach { tag ->
-                    TagCard(tag = tag)
+                    TagCard(
+                        tag = tag,
+                        onClick = { onTagClick(tag) },
+                    )
                 }
             }
         }
@@ -140,21 +152,43 @@ private fun TagSectionCard(section: TagSection) {
 }
 
 @Composable
-private fun TagCard(tag: TagDetail) {
+private fun TagCard(
+    tag: TagDetail,
+    onClick: () -> Unit,
+) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(0.48f),
+        modifier = Modifier
+            .fillMaxWidth(0.48f)
+            .clickable(onClick = onClick),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionSwitch(text = tag.name, selected = false, onClick = {})
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Text(
+                    text = tag.name,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             Text(tag.description.ifBlank { tag.name }, fontWeight = FontWeight.SemiBold)
             Text(
                 text = "${tag.questionCount} 帖子  ·  ${tag.followCount} 关注",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
+            if (tag.partition.isNotBlank()) {
+                SectionSwitch(
+                    text = "查看 ${tag.partition}",
+                    selected = false,
+                    onClick = onClick,
+                )
+            }
         }
     }
 }

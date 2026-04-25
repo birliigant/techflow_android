@@ -25,10 +25,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.birliigant.techflow.app.AppContainer
 import com.birliigant.techflow.app.appViewModelFactory
+import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.ui.ask.AskScreen
 import com.birliigant.techflow.ui.ask.AskViewModel
 import com.birliigant.techflow.ui.detail.QuestionDetailScreen
 import com.birliigant.techflow.ui.detail.QuestionDetailViewModel
+import com.birliigant.techflow.ui.explore.TagFeedScreen
+import com.birliigant.techflow.ui.explore.TagFeedViewModel
 import com.birliigant.techflow.ui.explore.TagsScreen
 import com.birliigant.techflow.ui.explore.TagsViewModel
 import com.birliigant.techflow.ui.explore.UsersScreen
@@ -54,12 +57,22 @@ private object Routes {
     const val ask = "ask"
     const val me = "me"
     const val tags = "tags"
+    const val tagPattern = "tag/{slug}?name={name}&partition={partition}&questionCount={questionCount}&followCount={followCount}"
     const val users = "users"
     const val settings = "settings"
     const val detailPattern = "detail/{questionId}"
     const val profilePattern = "profile/{username}?tab={tab}"
 
     fun detail(questionId: String): String = "detail/${Uri.encode(questionId)}"
+    fun tag(tag: TagDetail): String {
+        return buildString {
+            append("tag/${Uri.encode(tag.slug)}")
+            append("?name=${Uri.encode(tag.name)}")
+            append("&partition=${Uri.encode(tag.partition)}")
+            append("&questionCount=${tag.questionCount}")
+            append("&followCount=${tag.followCount}")
+        }
+    }
     fun profile(username: String, tab: String = ProfileTab.OVERVIEW.routeValue): String {
         return "profile/${Uri.encode(username)}?tab=${Uri.encode(tab)}"
     }
@@ -200,6 +213,57 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onBack = { navController.popBackStack() },
+                    onTagClick = { tag -> navController.navigate(Routes.tag(tag)) },
+                )
+            }
+
+            composable(
+                route = Routes.tagPattern,
+                arguments = listOf(
+                    navArgument("slug") { type = NavType.StringType },
+                    navArgument("name") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("partition") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("questionCount") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                    navArgument("followCount") {
+                        type = NavType.IntType
+                        defaultValue = 0
+                    },
+                ),
+            ) { entry ->
+                val slug = Uri.decode(entry.arguments?.getString("slug").orEmpty())
+                val name = Uri.decode(entry.arguments?.getString("name").orEmpty())
+                val partition = Uri.decode(entry.arguments?.getString("partition").orEmpty())
+                val tag = TagDetail(
+                    id = slug,
+                    name = name.ifBlank { slug },
+                    slug = slug,
+                    description = "",
+                    followCount = entry.arguments?.getInt("followCount") ?: 0,
+                    questionCount = entry.arguments?.getInt("questionCount") ?: 0,
+                    partition = partition,
+                )
+                TagFeedScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        key = "tag-${tag.slug}",
+                        factory = appViewModelFactory {
+                            TagFeedViewModel(
+                                tag = tag,
+                                questionRepository = appContainer.questionRepository,
+                            )
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                    onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
+                    onUserClick = ::openUserProfile,
                 )
             }
 
