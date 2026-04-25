@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.TagDetail
+import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.SectionSwitch
@@ -231,7 +232,7 @@ private fun TagQuestionCard(
                         modifier = Modifier.clickable(onClick = onUserClick),
                     )
                     Text(
-                        text = "@${question.authorUsername} · ${question.createdAt.ifBlank { "刚刚" }}",
+                        text = "@${question.authorUsername} · ${formatDisplayDate(question.createdAt).ifBlank { "刚刚" }}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )

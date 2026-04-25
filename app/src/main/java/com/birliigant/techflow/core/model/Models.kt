@@ -1,5 +1,9 @@
 package com.birliigant.techflow.core.model
 
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 data class SiteInfo(
     val name: String,
     val description: String,
@@ -174,4 +178,25 @@ fun markdownPreview(text: String, maxLength: Int = 180): String {
         .trim()
 
     return if (plain.length <= maxLength) plain else plain.take(maxLength).trimEnd() + "..."
+}
+
+fun formatDisplayDate(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isBlank()) return ""
+
+    val directDate = Regex("""\d{4}-\d{2}-\d{2}""").find(trimmed)?.value
+    if (directDate != null) return directDate
+
+    val epoch = trimmed.toLongOrNull()
+    if (epoch != null) {
+        val epochMillis = if (trimmed.length <= 10) epoch * 1000 else epoch
+        return runCatching {
+            Instant.ofEpochMilli(epochMillis)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+                .format(DateTimeFormatter.ISO_LOCAL_DATE)
+        }.getOrDefault(trimmed)
+    }
+
+    return trimmed
 }

@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.AnswerItem
 import com.birliigant.techflow.core.model.CommentItem
+import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.ui.common.AvatarImage
@@ -240,7 +241,7 @@ private fun DetailHeader(
                         modifier = Modifier.clickable(onClick = onAuthorClick),
                     )
                     Text(
-                        text = "@${detail.authorUsername} · ${detail.createdAt.ifBlank { "刚刚" }}",
+                        text = "@${detail.authorUsername} · ${formatDisplayDate(detail.createdAt).ifBlank { "刚刚" }}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -313,7 +314,7 @@ private fun AnswerCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("${answer.voteCount} 赞", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        text = answer.createdAt.ifBlank { "刚刚" },
+                        text = formatDisplayDate(answer.createdAt).ifBlank { "刚刚" },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -356,7 +357,7 @@ private fun CommentCard(
                 }
             }
             Text(
-                text = comment.createdAt.ifBlank { "刚刚" },
+                text = formatDisplayDate(comment.createdAt).ifBlank { "刚刚" },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )

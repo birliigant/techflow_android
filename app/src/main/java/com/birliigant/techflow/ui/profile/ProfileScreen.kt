@@ -36,6 +36,7 @@ import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.AnswerItem
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.core.model.markdownPreview
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
@@ -435,8 +436,8 @@ private fun OverviewSection(
         }
 
         OverviewCard(title = "状态") {
-            InfoLine(label = "加入时间", value = profile.createdAt.ifBlank { "未知" })
-            InfoLine(label = "最近登录", value = profile.lastLoginAt.ifBlank { "未知" })
+            InfoLine(label = "加入时间", value = formatDisplayDate(profile.createdAt).ifBlank { "未知" })
+            InfoLine(label = "最近登录", value = formatDisplayDate(profile.lastLoginAt).ifBlank { "未知" })
             if (profile.location.isNotBlank()) {
                 InfoLine(label = "地区", value = profile.location)
             }
@@ -578,7 +579,7 @@ private fun AnswerPreviewCard(item: AnswerItem) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${item.voteCount} 赞 · ${item.createdAt.ifBlank { "刚刚" }}",
+                text = "${item.voteCount} 赞 · ${formatDisplayDate(item.createdAt).ifBlank { "刚刚" }}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -614,7 +615,7 @@ private fun QuestionRow(
                 )
             }
             Text(
-                text = "${item.voteCount} 点赞 · ${item.answerCount} 回答 · ${item.viewCount} 浏览 · ${item.createdAt.ifBlank { "刚刚" }}",
+                text = "${item.voteCount} 点赞 · ${item.answerCount} 回答 · ${item.viewCount} 浏览 · ${formatDisplayDate(item.createdAt).ifBlank { "刚刚" }}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -644,7 +645,7 @@ private fun AnswerRow(item: AnswerItem) {
             }
             MarkdownText(markdownPreview(item.content, maxLength = 220))
             Text(
-                text = "${item.voteCount} 赞 · ${item.createdAt.ifBlank { "刚刚" }}",
+                text = "${item.voteCount} 赞 · ${formatDisplayDate(item.createdAt).ifBlank { "刚刚" }}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )

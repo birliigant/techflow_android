@@ -40,6 +40,7 @@ import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.core.model.CommunityUser
 import com.birliigant.techflow.core.model.SearchPostItem
 import com.birliigant.techflow.core.model.TagDetail
+import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.TagRepository
 import com.birliigant.techflow.data.repository.UserRepository
@@ -414,7 +415,7 @@ private fun SearchPostCard(
                         modifier = Modifier.clickable(onClick = onUserClick),
                     )
                     Text(
-                        text = "@${post.authorUsername} · ${post.createdAt.ifBlank { "刚刚" }}",
+                        text = "@${post.authorUsername} · ${formatDisplayDate(post.createdAt).ifBlank { "刚刚" }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

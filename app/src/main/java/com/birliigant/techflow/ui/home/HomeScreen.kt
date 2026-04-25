@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.UserProfile
+import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
@@ -493,7 +494,7 @@ private fun QuestionCard(
                     modifier = Modifier.clickable(onClick = onAuthorClick),
                 )
                 Text(
-                    text = "@${question.authorUsername} · 提问于 ${question.createdAt.ifBlank { "刚刚" }}",
+                    text = "@${question.authorUsername} · 提问于 ${formatDisplayDate(question.createdAt).ifBlank { "刚刚" }}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

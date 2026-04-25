@@ -1,15 +1,11 @@
 package com.birliigant.techflow.ui.common
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.birliigant.techflow.core.model.ProfessionOptions
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 fun ProfessionDropdownField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -31,22 +28,22 @@ fun ProfessionDropdownField(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxWidth()) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (enabled) expanded = !expanded },
+        modifier = modifier.fillMaxWidth(),
+    ) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = enabled) { expanded = true },
+                .menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, enabled),
             label = { Text(label) },
             readOnly = true,
             enabled = enabled,
             trailingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.KeyboardArrowDown,
-                    contentDescription = "选择$label",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
             singleLine = true,
         )
@@ -54,7 +51,9 @@ fun ProfessionDropdownField(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.heightIn(max = 360.dp),
+            modifier = Modifier
+                .heightIn(max = 360.dp)
+                .exposedDropdownSize(matchTextFieldWidth = true),
         ) {
             ProfessionOptions.forEach { profession ->
                 DropdownMenuItem(
