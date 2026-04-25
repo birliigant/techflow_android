@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -134,7 +135,6 @@ fun MeScreen(
     viewModel: MeViewModel,
     sessionRepository: SessionRepository,
     userRepository: UserRepository,
-    onOpenProfile: () -> Unit,
     onQuestionClick: (String) -> Unit,
     onOpenCollections: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -215,13 +215,6 @@ fun MeScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("打开完整主页") },
-                            onClick = {
-                                toolbarMenuExpanded = false
-                                onOpenProfile()
-                            },
-                        )
-                        DropdownMenuItem(
                             text = { Text("退出登录") },
                             onClick = {
                                 toolbarMenuExpanded = false
@@ -251,13 +244,22 @@ fun MeScreen(
             }
         } else if (profileViewModel != null) {
             val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
-            ProfileContent(
-                uiState = profileUiState,
-                onTabSelected = profileViewModel::onTabSelected,
-                onQuestionClick = onQuestionClick,
-                onOpenSettings = onOpenSettings,
-                showHeroEditButton = false,
-            )
+            if (profileUiState.isLoading && profileUiState.profile == null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                ProfileContent(
+                    uiState = profileUiState,
+                    onTabSelected = profileViewModel::onTabSelected,
+                    onQuestionClick = onQuestionClick,
+                    onOpenSettings = onOpenSettings,
+                    showHeroEditButton = false,
+                )
+            }
         }
     }
 }

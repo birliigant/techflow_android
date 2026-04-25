@@ -98,6 +98,36 @@ interface TechFlowApi {
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<QuestionDto>>
 
+    @GET("answer/api/v1/personal/comment/page")
+    suspend fun getPersonalCommentPage(
+        @Query("username") username: String,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<PersonalCommentDto>>
+
+    @GET("answer/api/v1/personal/rank/page")
+    suspend fun getPersonalRankPage(
+        @Query("username") username: String,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<PersonalRankDto>>
+
+    @GET("answer/api/v1/personal/vote/page")
+    suspend fun getPersonalVotePage(
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
+    ): ApiEnvelope<PageEnvelope<PersonalVoteDto>>
+
+    @GET("answer/api/v1/badge/user/awards")
+    suspend fun getUserBadgeAwards(
+        @Query("username") username: String,
+    ): ApiEnvelope<List<BadgeAwardDto>>
+
+    @GET("answer/api/v1/badge/user/awards/recent")
+    suspend fun getRecentUserBadgeAwards(
+        @Query("username") username: String,
+    ): ApiEnvelope<List<BadgeAwardDto>>
+
     @GET("answer/api/v1/user/logout")
     suspend fun logout(): ApiEnvelope<JsonObject?>
 

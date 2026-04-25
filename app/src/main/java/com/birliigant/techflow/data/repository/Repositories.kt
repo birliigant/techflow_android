@@ -1,17 +1,21 @@
 package com.birliigant.techflow.data.repository
 
 import com.birliigant.techflow.core.model.AppDefaults
+import com.birliigant.techflow.core.model.BadgeAward
 import com.birliigant.techflow.core.model.CommunityUser
+import com.birliigant.techflow.core.model.PersonalCommentActivity
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.core.model.SearchPostItem
 import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.ReputationActivity
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.UserProfileUpdate
+import com.birliigant.techflow.core.model.VoteActivity
 import com.birliigant.techflow.core.model.normalizeBaseUrl
 import com.birliigant.techflow.data.local.CachedQuestionEntity
 import com.birliigant.techflow.data.local.QuestionDao
@@ -348,6 +352,56 @@ class UserRepository(
             .list
             .orEmpty()
             .map { it.toSummary() }
+    }
+
+    suspend fun getPersonalComments(
+        username: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<PersonalCommentActivity>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalCommentPage(username, page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toModel() }
+    }
+
+    suspend fun getPersonalRanks(
+        username: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<ReputationActivity>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalRankPage(username, page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toModel() }
+    }
+
+    suspend fun getPersonalVotes(
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<VoteActivity>> = runCatching {
+        apiClientProvider.api()
+            .getPersonalVotePage(page, pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toModel() }
+    }
+
+    suspend fun getUserBadgeAwards(
+        username: String,
+        recentOnly: Boolean = false,
+    ): Result<List<BadgeAward>> = runCatching {
+        val response = if (recentOnly) {
+            apiClientProvider.api().getRecentUserBadgeAwards(username)
+        } else {
+            apiClientProvider.api().getUserBadgeAwards(username)
+        }
+        response.requireData().map { it.toModel() }
     }
 
     suspend fun logout() {

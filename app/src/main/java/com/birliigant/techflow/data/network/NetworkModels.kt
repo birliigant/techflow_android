@@ -1,19 +1,23 @@
 package com.birliigant.techflow.data.network
 
 import com.birliigant.techflow.core.model.AnswerItem
+import com.birliigant.techflow.core.model.BadgeAward
 import com.birliigant.techflow.core.model.CommunityUser
 import com.birliigant.techflow.core.model.CommentItem
+import com.birliigant.techflow.core.model.PersonalCommentActivity
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.core.model.SearchPostItem
 import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.ReputationActivity
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.TagSection
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.UserProfileUpdate
+import com.birliigant.techflow.core.model.VoteActivity
 import com.birliigant.techflow.core.model.markdownPreview
 import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
@@ -147,10 +151,54 @@ data class AnswerDto(
 data class CommentDto(
     @SerializedName("comment_id") val commentId: String? = null,
     @SerializedName("original_text") val originalText: String? = null,
+    @SerializedName("parsed_text") val parsedText: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("reply_username") val replyUsername: String? = null,
+    @SerializedName("user_avatar") val userAvatar: String? = null,
+    @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+)
+
+data class PersonalCommentDto(
+    @SerializedName("comment_id") val commentId: String? = null,
+    val content: String? = null,
+    @SerializedName("object_type") val objectType: String? = null,
+    @SerializedName("question_id") val questionId: String? = null,
+    val title: String? = null,
+    @SerializedName("object_id") val objectId: String? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+)
+
+data class PersonalRankDto(
+    @SerializedName("answer_id") val answerId: String? = null,
+    @SerializedName("object_id") val objectId: String? = null,
+    @SerializedName("object_type") val objectType: String? = null,
+    @SerializedName("question_id") val questionId: String? = null,
+    val title: String? = null,
+    val content: String? = null,
+    @SerializedName("rank_type") val rankType: String? = null,
+    val reputation: Int? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+)
+
+data class PersonalVoteDto(
+    @SerializedName("answer_id") val answerId: String? = null,
+    @SerializedName("object_id") val objectId: String? = null,
+    @SerializedName("object_type") val objectType: String? = null,
+    @SerializedName("question_id") val questionId: String? = null,
+    val title: String? = null,
+    val content: String? = null,
+    @SerializedName("vote_type") val voteType: String? = null,
+    @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+)
+
+data class BadgeAwardDto(
+    val id: String? = null,
+    val name: String? = null,
+    val icon: String? = null,
+    val level: String? = null,
+    @SerializedName("earned_count") val earnedCount: Int? = null,
 )
 
 data class EmailLoginRequest(
@@ -355,11 +403,57 @@ fun AnswerDto.toModel(): AnswerItem {
 fun CommentDto.toModel(): CommentItem {
     return CommentItem(
         id = commentId.orEmpty(),
-        content = originalText.orEmpty(),
+        content = originalText.orEmpty().ifBlank { parsedText.orEmpty() },
         authorName = userDisplayName.orEmpty().ifBlank { username.orEmpty() }.ifBlank { "访客" },
         authorUsername = username.orEmpty().ifBlank { userDisplayName.orEmpty() },
         createdAt = createdAt.orEmpty(),
         replyUsername = replyUsername,
+    )
+}
+
+fun PersonalCommentDto.toModel(): PersonalCommentActivity {
+    return PersonalCommentActivity(
+        id = commentId.orEmpty().ifBlank { objectId.orEmpty() },
+        objectType = objectType.orEmpty(),
+        questionId = questionId.orEmpty().ifBlank { objectId.orEmpty() },
+        title = title.orEmpty(),
+        content = content.orEmpty(),
+        createdAt = createdAt.orEmpty(),
+    )
+}
+
+fun PersonalRankDto.toModel(): ReputationActivity {
+    return ReputationActivity(
+        id = answerId.orEmpty().ifBlank { objectId.orEmpty() },
+        objectType = objectType.orEmpty(),
+        questionId = questionId.orEmpty().ifBlank { objectId.orEmpty() },
+        title = title.orEmpty(),
+        content = content.orEmpty(),
+        rankType = rankType.orEmpty(),
+        reputation = reputation ?: 0,
+        createdAt = createdAt.orEmpty(),
+    )
+}
+
+fun PersonalVoteDto.toModel(): VoteActivity {
+    return VoteActivity(
+        id = answerId.orEmpty().ifBlank { objectId.orEmpty() },
+        objectType = objectType.orEmpty(),
+        questionId = questionId.orEmpty().ifBlank { objectId.orEmpty() },
+        title = title.orEmpty(),
+        content = content.orEmpty(),
+        voteType = voteType.orEmpty(),
+        createdAt = createdAt.orEmpty(),
+    )
+}
+
+fun BadgeAwardDto.toModel(): BadgeAward {
+    return BadgeAward(
+        id = id.orEmpty(),
+        name = name.orEmpty(),
+        icon = icon?.normalizeRemoteUrl().orEmpty().ifBlank { null },
+        level = level.orEmpty(),
+        earnedCount = earnedCount ?: 0,
     )
 }
 

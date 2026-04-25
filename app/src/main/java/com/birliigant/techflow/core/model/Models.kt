@@ -72,6 +72,44 @@ data class PublicUserProfile(
     val lastLoginAt: String = "",
 )
 
+data class ReputationActivity(
+    val id: String,
+    val objectType: String,
+    val questionId: String,
+    val title: String,
+    val content: String,
+    val rankType: String,
+    val reputation: Int,
+    val createdAt: String,
+)
+
+data class PersonalCommentActivity(
+    val id: String,
+    val objectType: String,
+    val questionId: String,
+    val title: String,
+    val content: String,
+    val createdAt: String,
+)
+
+data class VoteActivity(
+    val id: String,
+    val objectType: String,
+    val questionId: String,
+    val title: String,
+    val content: String,
+    val voteType: String,
+    val createdAt: String,
+)
+
+data class BadgeAward(
+    val id: String,
+    val name: String,
+    val icon: String? = null,
+    val level: String = "",
+    val earnedCount: Int = 0,
+)
+
 data class QuestionSummary(
     val id: String,
     val title: String,
@@ -199,4 +237,43 @@ fun formatDisplayDate(raw: String): String {
     }
 
     return trimmed
+}
+
+fun reputationTypeLabel(raw: String): String {
+    return when (raw.lowercase()) {
+        "question" -> "问题"
+        "answer" -> "回答"
+        "comment" -> "评论"
+        "accepted" -> "回答被采纳"
+        "vote_up" -> "获赞"
+        "vote_down" -> "被点踩"
+        else -> raw.ifBlank { "声望变动" }
+    }
+}
+
+fun voteTypeLabel(raw: String): String {
+    return when (raw.lowercase()) {
+        "upvote", "up", "vote_up" -> "点赞"
+        "downvote", "down", "vote_down" -> "点踩"
+        else -> raw.ifBlank { "投票" }
+    }
+}
+
+fun objectTypeLabel(raw: String): String {
+    return when (raw.lowercase()) {
+        "question" -> "问题"
+        "answer" -> "回答"
+        "comment" -> "评论"
+        "tag" -> "标签"
+        else -> raw.ifBlank { "内容" }
+    }
+}
+
+fun badgeLevelLabel(raw: String): String {
+    return when (raw.lowercase()) {
+        "gold" -> "金牌"
+        "silver" -> "银牌"
+        "bronze" -> "铜牌"
+        else -> raw.ifBlank { "徽章" }
+    }
 }
