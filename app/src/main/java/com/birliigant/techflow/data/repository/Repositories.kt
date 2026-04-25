@@ -5,6 +5,7 @@ import com.birliigant.techflow.core.model.CommunityUser
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
+import com.birliigant.techflow.core.model.SearchPostItem
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagSection
@@ -23,6 +24,7 @@ import com.birliigant.techflow.data.network.toDetail
 import com.birliigant.techflow.data.network.toInfoRequest
 import com.birliigant.techflow.data.network.toModel
 import com.birliigant.techflow.data.network.toQuestionSummaryOrNull
+import com.birliigant.techflow.data.network.toSearchPostOrNull
 import com.birliigant.techflow.data.network.toProfessionRequest
 import com.birliigant.techflow.data.network.toRequest
 import com.birliigant.techflow.data.network.toSummary
@@ -132,23 +134,54 @@ class TagRepository(
     ): Result<List<TagSection>> = runCatching {
         apiClientProvider.api().getTagsPage(page, pageSize).requireData().map { it.toModel() }
     }
+
+    suspend fun getAllTags(): Result<List<com.birliigant.techflow.core.model.TagDetail>> = runCatching {
+        getTagSections(page = 1, pageSize = 100).getOrThrow()
+            .flatMap { it.tags }
+            .distinctBy { it.slug.ifBlank { it.name } }
+    }
 }
 
 class QuestionRepository(
     private val apiClientProvider: ApiClientProvider,
     private val questionDao: QuestionDao,
 ) {
-    suspend fun searchQuestions(
+    suspend fun searchPosts(
         query: String,
         page: Int = 1,
         pageSize: Int = 20,
-    ): Result<List<QuestionSummary>> = runCatching {
+    ): Result<List<SearchPostItem>> = runCatching {
         apiClientProvider.api()
             .search(query = query, page = page, pageSize = pageSize)
             .requireData()
             .list
             .orEmpty()
-            .mapNotNull { it.toQuestionSummaryOrNull() }
+            .mapNotNull { it.toSearchPostOrNull() }
+    }
+
+    suspend fun searchQuestions(
+        query: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<QuestionSummary>> = runCatching {
+        searchPosts(query = query, page = page, pageSize = pageSize)
+            .getOrThrow()
+            .filter { it.objectType == "question" }
+            .map {
+                QuestionSummary(
+                    id = it.questionId,
+                    title = it.title,
+                    excerpt = it.excerpt,
+                    authorName = it.authorName,
+                    authorUsername = it.authorUsername,
+                    authorAvatar = it.authorAvatar,
+                    answerCount = it.answerCount,
+                    voteCount = it.voteCount,
+                    viewCount = it.viewCount,
+                    createdAt = it.createdAt,
+                    tags = it.tags,
+                )
+            }
     }
 
     suspend fun getQuestionPage(
@@ -268,7 +301,11 @@ class UserRepository(
 
     suspend fun getCommunityUsers(): Result<List<CommunityUser>> = runCatching {
         val payload = apiClientProvider.api().getCommunityUsers().requireData()
-        payload.staffs.orEmpty().map { it.toModel() }
+        buildList {
+            addAll(payload.staffs.orEmpty())
+            addAll(payload.topReputationUsers.orEmpty())
+            addAll(payload.topVoteUsers.orEmpty())
+        }.map { it.toModel() }.distinctBy { it.username }
     }
 
     suspend fun getPublicProfile(username: String): Result<PublicUserProfile> = runCatching {

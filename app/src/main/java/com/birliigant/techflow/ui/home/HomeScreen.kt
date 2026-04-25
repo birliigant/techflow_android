@@ -27,14 +27,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpOffset
@@ -146,7 +150,7 @@ fun HomeScreen(
     onQuestionClick: (String) -> Unit,
     onOpenMe: () -> Unit,
     onOpenRegister: () -> Unit,
-    onOpenSearch: () -> Unit,
+    onOpenSearch: (String) -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
@@ -244,7 +248,7 @@ private fun HomeHeader(
     onOrderSelected: (QuestionOrder) -> Unit,
     onOpenMe: () -> Unit,
     onOpenRegister: () -> Unit,
-    onOpenSearch: () -> Unit,
+    onOpenSearch: (String) -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -254,6 +258,7 @@ private fun HomeHeader(
 ) {
     var navigationMenuExpanded by remember { mutableStateOf(false) }
     var userMenuExpanded by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -351,30 +356,58 @@ private fun HomeHeader(
             }
         }
 
-        Surface(
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 16.dp)
-                .clickable(onClick = onOpenSearch),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            placeholder = {
+                Text(
+                    text = "搜索问题、标签、用户",
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f),
+                )
+            },
+            leadingIcon = {
                 Icon(
                     imageVector = Icons.Outlined.Search,
                     contentDescription = "搜索",
-                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
                 )
+            },
+            trailingIcon = {
                 Text(
-                    text = "Search questions, answers, tags",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    text = "搜索",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        searchQuery.trim().takeIf { it.isNotBlank() }?.let(onOpenSearch)
+                    },
                 )
-            }
-        }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onSearch = {
+                    searchQuery.trim().takeIf { it.isNotBlank() }?.let(onOpenSearch)
+                },
+            ),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+                disabledContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+                focusedTextColor = MaterialTheme.colorScheme.onPrimary,
+                unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
+                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                focusedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.onPrimary,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onPrimary,
+                cursorColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        )
 
         Surface(
             modifier = Modifier

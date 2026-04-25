@@ -159,7 +159,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenMe = { navigateToTopLevel(Routes.me) },
                     onOpenRegister = { navController.navigate(Routes.register) },
-                    onOpenSearch = { navController.navigate(Routes.search()) },
+                    onOpenSearch = { query -> navController.navigate(Routes.search(query)) },
                     onOpenTags = { navController.navigate(Routes.tags) },
                     onOpenUsers = { navController.navigate(Routes.users) },
                     onOpenUserProfile = ::openUserProfile,
@@ -229,12 +229,15 @@ fun TechFlowApp(appContainer: AppContainer) {
                             SearchViewModel(
                                 initialQuery = query,
                                 questionRepository = appContainer.questionRepository,
+                                tagRepository = appContainer.tagRepository,
+                                userRepository = appContainer.userRepository,
                             )
                         },
                     ),
                     onBack = { navController.popBackStack() },
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onUserClick = ::openUserProfile,
+                    onTagClick = { tag -> navController.navigate(Routes.tag(tag)) },
                 )
             }
 

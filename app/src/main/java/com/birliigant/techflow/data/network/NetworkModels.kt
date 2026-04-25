@@ -6,6 +6,7 @@ import com.birliigant.techflow.core.model.CommentItem
 import com.birliigant.techflow.core.model.PublicUserProfile
 import com.birliigant.techflow.core.model.QuestionDetail
 import com.birliigant.techflow.core.model.QuestionDraft
+import com.birliigant.techflow.core.model.SearchPostItem
 import com.birliigant.techflow.core.model.QuestionSummary
 import com.birliigant.techflow.core.model.SiteInfo
 import com.birliigant.techflow.core.model.TagDetail
@@ -111,6 +112,7 @@ data class PublicUserProfileDto(
 
 data class QuestionDto(
     val id: String? = null,
+    @SerializedName("question_id") val questionId: String? = null,
     val title: String? = null,
     val content: String? = null,
     val html: String? = null,
@@ -120,6 +122,7 @@ data class QuestionDto(
     @SerializedName("answer_count") val answerCount: Int? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+    val accepted: JsonElement? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
@@ -215,6 +218,33 @@ fun TagDetailDto.toModel(): TagDetail {
 fun SearchItemDto.toQuestionSummaryOrNull(): QuestionSummary? {
     if (objectType != "question") return null
     return payload?.toSummary()
+}
+
+fun SearchItemDto.toSearchPostOrNull(): SearchPostItem? {
+    val source = payload ?: return null
+    val questionId = source.questionId.orEmpty().ifBlank { source.id.orEmpty() }
+    return SearchPostItem(
+        objectType = objectType.orEmpty().ifBlank { "question" },
+        id = source.id.orEmpty().ifBlank { questionId },
+        questionId = questionId,
+        title = source.title.orEmpty(),
+        excerpt = source.excerpt.orEmpty().ifBlank {
+            markdownPreview(
+                source.content.orEmpty()
+                    .ifBlank { source.parsedText.orEmpty() }
+                    .ifBlank { source.html.orEmpty() },
+            )
+        },
+        authorName = source.resolveAuthorName(),
+        authorUsername = source.resolveAuthorUsername(),
+        authorAvatar = source.resolveAuthorAvatar(),
+        answerCount = source.answerCount ?: 0,
+        voteCount = source.voteCount ?: 0,
+        viewCount = source.viewCount ?: 0,
+        createdAt = source.createdAt.orEmpty(),
+        tags = source.tags.orEmpty().map { it.toModel() },
+        accepted = source.accepted.toBooleanCompat(),
+    )
 }
 
 fun UserDto.toModel(): UserProfile {

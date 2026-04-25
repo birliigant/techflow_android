@@ -11,20 +11,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,32 +37,55 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.birliigant.techflow.core.model.QuestionSummary
+import com.birliigant.techflow.core.model.CommunityUser
+import com.birliigant.techflow.core.model.SearchPostItem
+import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.data.repository.QuestionRepository
+import com.birliigant.techflow.data.repository.TagRepository
+import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
+import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class SearchTab(val label: String) {
+    QUESTIONS("问题"),
+    TAGS("标签"),
+    USERS("用户"),
+}
+
+enum class SearchSort(val label: String) {
+    RELEVANCE("相关性"),
+    NEWEST("最新的"),
+    ACTIVE("活跃的"),
+    SCORE("评分"),
+}
+
 data class SearchUiState(
     val query: String = "",
     val submittedQuery: String = "",
     val isLoading: Boolean = false,
-    val results: List<QuestionSummary> = emptyList(),
+    val selectedTab: SearchTab = SearchTab.QUESTIONS,
+    val selectedSort: SearchSort = SearchSort.RELEVANCE,
+    val posts: List<SearchPostItem> = emptyList(),
+    val tags: List<TagDetail> = emptyList(),
+    val users: List<CommunityUser> = emptyList(),
     val errorMessage: String? = null,
 )
 
 class SearchViewModel(
     initialQuery: String,
     private val questionRepository: QuestionRepository,
+    private val tagRepository: TagRepository,
+    private val userRepository: UserRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SearchUiState(query = initialQuery))
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
-    private var searchJob: Job? = null
 
     init {
         if (initialQuery.isNotBlank()) {
@@ -69,13 +97,23 @@ class SearchViewModel(
         _uiState.update { it.copy(query = value) }
     }
 
+    fun onTabSelected(tab: SearchTab) {
+        _uiState.update { it.copy(selectedTab = tab) }
+    }
+
+    fun onSortSelected(sort: SearchSort) {
+        _uiState.update { it.copy(selectedSort = sort) }
+    }
+
     fun submitSearch() {
         val query = _uiState.value.query.trim()
         if (query.isBlank()) {
             _uiState.update {
                 it.copy(
                     submittedQuery = "",
-                    results = emptyList(),
+                    posts = emptyList(),
+                    tags = emptyList(),
+                    users = emptyList(),
                     errorMessage = null,
                     isLoading = false,
                 )
@@ -83,8 +121,7 @@ class SearchViewModel(
             return
         }
 
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
+        viewModelScope.launch {
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -92,12 +129,38 @@ class SearchViewModel(
                     errorMessage = null,
                 )
             }
-            val result = questionRepository.searchQuestions(query = query, pageSize = 30)
+            val signals = SearchSignals.from(query)
+            val postsDeferred = async { questionRepository.searchPosts(query = query, pageSize = 30) }
+            val tagsDeferred = async { tagRepository.getAllTags() }
+            val usersDeferred = async { userRepository.getCommunityUsers() }
+
+            val postResult = postsDeferred.await()
+            val tagResult = tagsDeferred.await()
+            val userResult = usersDeferred.await()
+
+            val filteredTags = tagResult.getOrNull().orEmpty().filter { tag ->
+                signals.matchesTag(tag)
+            }
+            val filteredUsers = userResult.getOrNull().orEmpty().filter { user ->
+                signals.matchesUser(user)
+            }
+
+            val preferredTab = when {
+                signals.userFilter != null && filteredUsers.isNotEmpty() -> SearchTab.USERS
+                signals.tagFilter != null && filteredTags.isNotEmpty() -> SearchTab.TAGS
+                else -> SearchTab.QUESTIONS
+            }
+
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    results = result.getOrNull().orEmpty(),
-                    errorMessage = result.exceptionOrNull()?.message,
+                    selectedTab = preferredTab,
+                    posts = postResult.getOrNull().orEmpty(),
+                    tags = filteredTags,
+                    users = filteredUsers,
+                    errorMessage = postResult.exceptionOrNull()?.message
+                        ?: tagResult.exceptionOrNull()?.message
+                        ?: userResult.exceptionOrNull()?.message,
                 )
             }
         }
@@ -110,8 +173,10 @@ fun SearchScreen(
     onBack: () -> Unit,
     onQuestionClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onTagClick: (TagDetail) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sortedPosts = uiState.posts.sortedWith(uiState.selectedSort.comparator())
 
     Column(
         modifier = Modifier
@@ -119,8 +184,14 @@ fun SearchScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TechFlowTopBar(
-            title = "搜索",
+            title = "搜索结果",
             onBackClick = onBack,
+        )
+
+        SearchEntryBar(
+            query = uiState.query,
+            onQueryChange = viewModel::updateQuery,
+            onSearch = viewModel::submitSearch,
         )
 
         LazyColumn(
@@ -129,36 +200,49 @@ fun SearchScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = uiState.query,
-                            onValueChange = viewModel::updateQuery,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("搜索问题") },
-                            placeholder = { Text("输入关键词，例如：机器学习、前端、保研") },
-                            singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                                onSearch = { viewModel.submitSearch() },
-                            ),
-                        )
-                        Button(
-                            onClick = viewModel::submitSearch,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Search,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp),
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "搜索结果",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(SearchTab.entries, key = { it.name }) { tab ->
+                            SectionSwitch(
+                                text = tab.label,
+                                selected = uiState.selectedTab == tab,
+                                onClick = { viewModel.onTabSelected(tab) },
                             )
-                            Text("开始搜索")
+                        }
+                    }
+                    Text(
+                        text = when (uiState.selectedTab) {
+                            SearchTab.QUESTIONS -> "${sortedPosts.size} 个结果"
+                            SearchTab.TAGS -> "${uiState.tags.size} 个标签"
+                            SearchTab.USERS -> "${uiState.users.size} 个用户"
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+
+            if (uiState.selectedTab == SearchTab.QUESTIONS) {
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(SearchSort.entries, key = { it.name }) { sort ->
+                            SectionSwitch(
+                                text = sort.label,
+                                selected = uiState.selectedSort == sort,
+                                onClick = { viewModel.onSortSelected(sort) },
+                            )
                         }
                     }
                 }
+            }
+
+            item {
+                SearchHintsCard()
             }
 
             if (uiState.isLoading) {
@@ -183,32 +267,104 @@ fun SearchScreen(
                 }
             }
 
-            if (!uiState.isLoading && uiState.submittedQuery.isBlank()) {
-                item {
-                    EmptySearchState("输入关键词后即可搜索问题内容。")
+            when (uiState.selectedTab) {
+                SearchTab.QUESTIONS -> {
+                    if (!uiState.isLoading && sortedPosts.isEmpty() && uiState.submittedQuery.isNotBlank() && uiState.errorMessage == null) {
+                        item { EmptySearchState("没有找到相关的问题或回答内容。") }
+                    }
+                    itemsIndexed(sortedPosts) { _, post ->
+                        SearchPostCard(
+                            post = post,
+                            onClick = { onQuestionClick(post.questionId) },
+                            onUserClick = { onUserClick(post.authorUsername) },
+                        )
+                    }
                 }
-            }
 
-            if (!uiState.isLoading && uiState.submittedQuery.isNotBlank() && uiState.results.isEmpty() && uiState.errorMessage == null) {
-                item {
-                    EmptySearchState("没有找到与“${uiState.submittedQuery}”相关的问题。")
+                SearchTab.TAGS -> {
+                    if (!uiState.isLoading && uiState.tags.isEmpty() && uiState.submittedQuery.isNotBlank() && uiState.errorMessage == null) {
+                        item { EmptySearchState("没有找到相关标签。") }
+                    }
+                    itemsIndexed(uiState.tags) { _, tag ->
+                        SearchTagCard(
+                            tag = tag,
+                            onClick = { onTagClick(tag) },
+                        )
+                    }
                 }
-            }
 
-            itemsIndexed(uiState.results) { _, question ->
-                SearchResultCard(
-                    question = question,
-                    onClick = { onQuestionClick(question.id) },
-                    onUserClick = { onUserClick(question.authorUsername) },
-                )
+                SearchTab.USERS -> {
+                    if (!uiState.isLoading && uiState.users.isEmpty() && uiState.submittedQuery.isNotBlank() && uiState.errorMessage == null) {
+                        item { EmptySearchState("没有找到相关用户。") }
+                    }
+                    itemsIndexed(uiState.users) { _, user ->
+                        SearchUserCard(
+                            user = user,
+                            onClick = { onUserClick(user.username) },
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SearchResultCard(
-    question: QuestionSummary,
+private fun SearchEntryBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        placeholder = {
+            Text(
+                text = "搜索问题、标签、用户",
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f),
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = "搜索",
+                tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f),
+            )
+        },
+        trailingIcon = {
+            Text(
+                text = "搜索",
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable(onClick = onSearch),
+            )
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onSearch = { onSearch() },
+        ),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+            unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+            disabledContainerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
+            focusedTextColor = MaterialTheme.colorScheme.onPrimary,
+            unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            cursorColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+    )
+}
+
+@Composable
+private fun SearchPostCard(
+    post: SearchPostItem,
     onClick: () -> Unit,
     onUserClick: () -> Unit,
 ) {
@@ -221,8 +377,23 @@ private fun SearchResultCard(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Surface(
+                color = if (post.objectType == "answer") {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Text(
+                    text = if (post.objectType == "answer") "回答" else "问题",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    color = if (post.objectType == "answer") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             Text(
-                text = question.title,
+                text = post.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
@@ -231,38 +402,162 @@ private fun SearchResultCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 AvatarImage(
-                    imageUrl = question.authorAvatar,
-                    fallbackText = question.authorName,
+                    imageUrl = post.authorAvatar,
+                    fallbackText = post.authorName,
                     modifier = Modifier.size(40.dp),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = question.authorName,
+                        text = post.authorName,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable(onClick = onUserClick),
                     )
                     Text(
-                        text = "@${question.authorUsername} · ${question.createdAt.ifBlank { "刚刚" }}",
+                        text = "@${post.authorUsername} · ${post.createdAt.ifBlank { "刚刚" }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            if (question.excerpt.isNotBlank()) {
+            if (post.excerpt.isNotBlank()) {
                 Text(
-                    text = question.excerpt,
+                    text = post.excerpt,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (post.tags.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(post.tags.take(3), key = { it.slug.ifBlank { it.name } }) { tag ->
+                        SearchTagChip(tag.name)
+                    }
+                }
+            }
+            Text(
+                text = "${post.voteCount} 点赞 · ${post.answerCount} 回答 · ${post.viewCount} 浏览",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchTagCard(
+    tag: TagDetail,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = tag.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            if (tag.description.isNotBlank()) {
+                Text(
+                    text = tag.description,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Text(
-                text = "${question.voteCount} 点赞 · ${question.answerCount} 回答 · ${question.viewCount} 浏览",
+                text = "${tag.questionCount} 帖子 · ${tag.followCount} 关注",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+@Composable
+private fun SearchUserCard(
+    user: CommunityUser,
+    onClick: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            AvatarImage(
+                imageUrl = user.avatar,
+                fallbackText = user.displayName,
+                modifier = Modifier.size(48.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(user.displayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text("@${user.username}", color = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "${user.rank} 声望值",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchHintsCard() {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("高级搜索提示", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            SearchHintLine("[tag]", "在指定标签中搜索")
+            SearchHintLine("user:username", "根据作者搜索")
+            SearchHintLine("answers:0", "搜索未回答的问题")
+            SearchHintLine("score:3", "评分 3+ 的帖子")
+            SearchHintLine("is:question", "搜索问题")
+            SearchHintLine("is:answer", "搜索回答")
+        }
+    }
+}
+
+@Composable
+private fun SearchHintLine(keyword: String, description: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = keyword,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = description,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SearchTagChip(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -274,5 +569,61 @@ private fun EmptySearchState(text: String) {
             modifier = Modifier.padding(20.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+private data class SearchSignals(
+    val raw: String,
+    val normalized: String,
+    val tagFilter: String? = null,
+    val userFilter: String? = null,
+) {
+    fun matchesTag(tag: TagDetail): Boolean {
+        val candidate = tagFilter ?: normalized
+        if (candidate.isBlank()) return false
+        return tag.name.contains(candidate, ignoreCase = true) ||
+            tag.slug.contains(candidate, ignoreCase = true) ||
+            tag.description.contains(candidate, ignoreCase = true)
+    }
+
+    fun matchesUser(user: CommunityUser): Boolean {
+        val candidate = userFilter ?: normalized
+        if (candidate.isBlank()) return false
+        return user.username.contains(candidate, ignoreCase = true) ||
+            user.displayName.contains(candidate, ignoreCase = true)
+    }
+
+    companion object {
+        fun from(raw: String): SearchSignals {
+            val tagMatch = Regex("\\[(.*?)]").find(raw)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+            val userMatch = Regex("user:([^\\s]+)").find(raw)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+            val normalized = raw
+                .replace(Regex("\\[(.*?)]"), " ")
+                .replace(Regex("user:([^\\s]+)"), " ")
+                .replace(Regex("answers:\\d+"), " ")
+                .replace(Regex("score:\\d+"), " ")
+                .replace(Regex("is:(question|answer)"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+
+            return SearchSignals(
+                raw = raw,
+                normalized = normalized,
+                tagFilter = tagMatch,
+                userFilter = userMatch,
+            )
+        }
+    }
+}
+
+private fun SearchSort.comparator(): Comparator<SearchPostItem> {
+    return when (this) {
+        SearchSort.RELEVANCE -> compareByDescending<SearchPostItem> { it.voteCount + it.answerCount * 2 }
+            .thenByDescending { it.createdAt.toLongOrNull() ?: 0L }
+        SearchSort.NEWEST -> compareByDescending<SearchPostItem> { it.createdAt.toLongOrNull() ?: 0L }
+        SearchSort.ACTIVE -> compareByDescending<SearchPostItem> { it.answerCount }
+            .thenByDescending { it.createdAt.toLongOrNull() ?: 0L }
+        SearchSort.SCORE -> compareByDescending<SearchPostItem> { it.voteCount }
+            .thenByDescending { it.answerCount }
     }
 }

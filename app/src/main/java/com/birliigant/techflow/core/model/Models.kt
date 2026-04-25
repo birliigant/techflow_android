@@ -82,6 +82,23 @@ data class QuestionSummary(
     val tags: List<TagItem>,
 )
 
+data class SearchPostItem(
+    val objectType: String,
+    val id: String,
+    val questionId: String,
+    val title: String,
+    val excerpt: String,
+    val authorName: String,
+    val authorUsername: String,
+    val authorAvatar: String? = null,
+    val answerCount: Int,
+    val voteCount: Int,
+    val viewCount: Int,
+    val createdAt: String,
+    val tags: List<TagItem>,
+    val accepted: Boolean = false,
+)
+
 data class AnswerItem(
     val id: String,
     val content: String,
