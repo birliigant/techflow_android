@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -241,7 +242,7 @@ fun ProfileScreen(
                     if (uiState.questions.isEmpty()) {
                         item { EmptyState(text = "这个用户还没有公开的问题内容。") }
                     } else {
-                        items(uiState.questions, key = { it.id }) { item ->
+                        itemsIndexed(uiState.questions) { _, item ->
                             QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
                         }
                     }
@@ -251,7 +252,7 @@ fun ProfileScreen(
                     if (uiState.answers.isEmpty()) {
                         item { EmptyState(text = "这个用户还没有公开的回答内容。") }
                     } else {
-                        items(uiState.answers, key = { it.id }) { item ->
+                        itemsIndexed(uiState.answers) { _, item ->
                             AnswerRow(item = item)
                         }
                     }
@@ -263,7 +264,7 @@ fun ProfileScreen(
                     } else if (uiState.collections.isEmpty()) {
                         item { EmptyState(text = "还没有收藏内容。") }
                     } else {
-                        items(uiState.collections, key = { it.id }) { item ->
+                        itemsIndexed(uiState.collections) { _, item ->
                             QuestionRow(item = item, onClick = { onQuestionClick(item.id) })
                         }
                     }

@@ -43,6 +43,8 @@ import com.birliigant.techflow.ui.me.MeViewModel
 import com.birliigant.techflow.ui.profile.ProfileScreen
 import com.birliigant.techflow.ui.profile.ProfileTab
 import com.birliigant.techflow.ui.profile.ProfileViewModel
+import com.birliigant.techflow.ui.search.SearchScreen
+import com.birliigant.techflow.ui.search.SearchViewModel
 import com.birliigant.techflow.ui.settings.SettingsScreen
 import com.birliigant.techflow.ui.settings.SettingsViewModel
 
@@ -56,6 +58,7 @@ private object Routes {
     const val home = "home"
     const val ask = "ask"
     const val me = "me"
+    const val searchPattern = "search?q={q}"
     const val tags = "tags"
     const val tagPattern = "tag/{slug}?name={name}&partition={partition}&questionCount={questionCount}&followCount={followCount}"
     const val users = "users"
@@ -64,6 +67,7 @@ private object Routes {
     const val profilePattern = "profile/{username}?tab={tab}"
 
     fun detail(questionId: String): String = "detail/${Uri.encode(questionId)}"
+    fun search(query: String = ""): String = "search?q=${Uri.encode(query)}"
     fun tag(tag: TagDetail): String {
         return buildString {
             append("tag/${Uri.encode(tag.slug)}")
@@ -151,6 +155,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     ),
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenMe = { navigateToTopLevel(Routes.me) },
+                    onOpenSearch = { navController.navigate(Routes.search()) },
                     onOpenTags = { navController.navigate(Routes.tags) },
                     onOpenUsers = { navController.navigate(Routes.users) },
                     onOpenUserProfile = ::openUserProfile,
@@ -188,6 +193,32 @@ fun TechFlowApp(appContainer: AppContainer) {
                     onOpenProfile = { openCurrentUserProfile() },
                     onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
                     onOpenSettings = { navController.navigate(Routes.settings) },
+                )
+            }
+
+            composable(
+                route = Routes.searchPattern,
+                arguments = listOf(
+                    navArgument("q") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
+            ) { entry ->
+                val query = Uri.decode(entry.arguments?.getString("q").orEmpty())
+                SearchScreen(
+                    viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        key = "search-$query",
+                        factory = appViewModelFactory {
+                            SearchViewModel(
+                                initialQuery = query,
+                                questionRepository = appContainer.questionRepository,
+                            )
+                        },
+                    ),
+                    onBack = { navController.popBackStack() },
+                    onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
+                    onUserClick = ::openUserProfile,
                 )
             }
 

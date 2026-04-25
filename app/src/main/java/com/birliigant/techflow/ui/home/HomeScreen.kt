@@ -145,6 +145,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onQuestionClick: (String) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
@@ -170,6 +171,7 @@ fun HomeScreen(
                     selectedOrder = uiState.selectedOrder,
                     onOrderSelected = viewModel::onOrderSelected,
                     onOpenMe = onOpenMe,
+                    onOpenSearch = onOpenSearch,
                     onOpenTags = onOpenTags,
                     onOpenUsers = onOpenUsers,
                     onOpenProfile = onOpenProfile,
@@ -239,6 +241,7 @@ private fun HomeHeader(
     selectedOrder: QuestionOrder,
     onOrderSelected: (QuestionOrder) -> Unit,
     onOpenMe: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenTags: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenProfile: () -> Unit,
@@ -348,7 +351,8 @@ private fun HomeHeader(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+                .padding(horizontal = 18.dp, vertical = 16.dp)
+                .clickable(onClick = onOpenSearch),
             shape = RoundedCornerShape(12.dp),
             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f),
         ) {
