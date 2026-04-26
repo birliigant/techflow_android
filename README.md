@@ -205,6 +205,8 @@ app/src/main/java/com/birliigant/techflow
 - 支持 Markdown / HTML 内容渲染
 - 展示回答列表
 - 展示评论列表
+- 支持帖子点赞、收藏、评论、分享、举报
+- 支持回答点赞、楼中楼评论、分享、举报
 - 支持点击回答者、评论者、被回复用户进入对应主页
 
 ### 5.3 登录与会话
@@ -248,6 +250,8 @@ app/src/main/java/com/birliigant/techflow
 
 - 支持创建问题
 - 支持填写标题、正文、标签、分区等信息
+- 支持更接近 Web 端的 Markdown 编辑器式输入区域
+- 支持常用格式工具栏与实时预览
 
 ### 5.9 缓存与兜底
 
@@ -277,6 +281,7 @@ app/src/main/java/com/birliigant/techflow
 - 首页列表里“是否有最佳回答”既兼容 `accepted`，也兼容 `accepted_answer_id`
 - 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
 - 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
+- 发帖请求里的 `tags` 已按 Swagger 要求发送为 `schema.TagItem` 对象数组，而不是纯字符串数组
 
 ### 6.3 Swagger 与现网双基准
 
@@ -369,7 +374,6 @@ app/build/outputs/apk/debug/app-debug.apk
 虽然项目已经具备较完整的主流程，但仍有一些边界需要明确：
 
 - 头像上传目前尚未实现写接口接入
-- 回答发布、评论发布、点赞、收藏、关注等互动能力还可以继续补齐
 - 通知系统页面和消息中心还未完整落地
 - 分区页、通知页、更多个人中心能力仍可进一步丰富
 
@@ -381,10 +385,9 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ### 10.1 社区互动能力补全
 
-- 发布回答
-- 发布评论
-- 点赞 / 点踩
-- 收藏 / 取消收藏
+- 更完整的评论线程管理
+- 点踩、撤销举报、更多 reaction 交互
+- 收藏分组与书签管理
 - 关注标签
 - 关注用户
 

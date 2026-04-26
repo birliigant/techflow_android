@@ -119,6 +119,7 @@ data class QuestionDto(
     val id: String? = null,
     @SerializedName("question_id") val questionId: String? = null,
     val title: String? = null,
+    @SerializedName("url_title") val urlTitle: String? = null,
     val content: String? = null,
     val html: String? = null,
     @SerializedName("parsed_text") val parsedText: String? = null,
@@ -126,9 +127,12 @@ data class QuestionDto(
     @SerializedName("view_count") val viewCount: Int? = null,
     @SerializedName("answer_count") val answerCount: Int? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
+    @SerializedName("collection_count") val collectionCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
     val accepted: JsonElement? = null,
     @SerializedName("accepted_answer_id") val acceptedAnswerId: String? = null,
+    val collected: Boolean? = null,
+    @SerializedName("vote_status") val voteStatus: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
@@ -139,6 +143,7 @@ data class QuestionDto(
 
 data class AnswerDto(
     val id: String? = null,
+    @SerializedName("question_id") val questionId: String? = null,
     val content: String? = null,
     val html: String? = null,
     @SerializedName("parsed_text") val parsedText: String? = null,
@@ -148,6 +153,7 @@ data class AnswerDto(
     @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
     val accepted: JsonElement? = null,
+    @SerializedName("vote_status") val voteStatus: String? = null,
 )
 
 data class CommentDto(
@@ -217,11 +223,17 @@ data class EmailRegisterRequest(
     val profession: String? = null,
 )
 
+data class CreateQuestionTagRequest(
+    @SerializedName("display_name") val displayName: String,
+    @SerializedName("original_text") val originalText: String,
+    @SerializedName("slug_name") val slugName: String,
+)
+
 data class CreateQuestionRequest(
     val title: String,
     val content: String,
-    val tags: List<String>,
-    val partition: String,
+    val tags: List<CreateQuestionTagRequest>,
+    val partition: String? = null,
 )
 
 data class UpdateUserInfoRequest(
@@ -234,6 +246,45 @@ data class UpdateUserInfoRequest(
 
 data class ChangeProfessionRequest(
     val profession: String? = null,
+)
+
+data class VoteRequest(
+    @SerializedName("object_id") val objectId: String,
+    @SerializedName("is_cancel") val isCancel: Boolean? = null,
+)
+
+data class VoteResponse(
+    val votes: Int? = null,
+    @SerializedName("up_votes") val upVotes: Int? = null,
+    @SerializedName("vote_status") val voteStatus: String? = null,
+)
+
+data class CollectionSwitchRequest(
+    @SerializedName("object_id") val objectId: String,
+    @SerializedName("group_id") val groupId: String = "0",
+    val bookmark: Boolean = true,
+)
+
+data class CollectionSwitchResponse(
+    @SerializedName("object_collection_count") val objectCollectionCount: Int? = null,
+)
+
+data class AddCommentRequest(
+    @SerializedName("object_id") val objectId: String,
+    @SerializedName("original_text") val originalText: String,
+    @SerializedName("reply_comment_id") val replyCommentId: String? = null,
+    @SerializedName("mention_username_list") val mentionUsernameList: List<String>? = null,
+)
+
+data class AddReportRequest(
+    @SerializedName("object_id") val objectId: String,
+    @SerializedName("report_type") val reportType: Int = 1,
+    val content: String? = null,
+)
+
+data class CreateAnswerRequest(
+    @SerializedName("question_id") val questionId: String,
+    val content: String,
 )
 
 fun SiteInfoDto.toModel(): SiteInfo {
@@ -407,13 +458,17 @@ fun QuestionDto.toDetail(
         id = id.orEmpty(),
         title = title.orEmpty(),
         content = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() },
+        urlTitle = urlTitle.orEmpty(),
         authorName = resolveAuthorName(),
         authorUsername = resolveAuthorUsername(),
         authorAvatar = resolveAuthorAvatar(),
         answerCount = answerCount ?: answers.size,
         voteCount = voteCount ?: 0,
+        collectionCount = collectionCount ?: 0,
         viewCount = viewCount ?: 0,
         createdAt = createdAt.orEmpty(),
+        collected = collected == true,
+        voteStatus = voteStatus.orEmpty(),
         tags = tags.orEmpty().map { it.toModel() },
         answers = answers,
         comments = comments,
@@ -435,6 +490,7 @@ fun AnswerDto.toModel(): AnswerItem {
         voteCount = voteCount ?: 0,
         createdAt = createdAt.orEmpty(),
         accepted = accepted.toBooleanCompat(),
+        voteStatus = voteStatus.orEmpty(),
     )
 }
 
@@ -508,8 +564,14 @@ fun QuestionDraft.toRequest(): CreateQuestionRequest {
     return CreateQuestionRequest(
         title = title,
         content = content,
-        tags = tags,
-        partition = partition,
+        tags = tags.map { tag ->
+            CreateQuestionTagRequest(
+                displayName = tag,
+                originalText = tag,
+                slugName = tag,
+            )
+        },
+        partition = partition.ifBlank { null },
     )
 }
 

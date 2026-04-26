@@ -151,6 +151,7 @@ data class AnswerItem(
     val voteCount: Int,
     val createdAt: String,
     val accepted: Boolean = false,
+    val voteStatus: String = "",
 )
 
 data class CommentItem(
@@ -166,13 +167,17 @@ data class QuestionDetail(
     val id: String,
     val title: String,
     val content: String,
+    val urlTitle: String = "",
     val authorName: String,
     val authorUsername: String,
     val authorAvatar: String? = null,
     val answerCount: Int,
     val voteCount: Int,
+    val collectionCount: Int = 0,
     val viewCount: Int,
     val createdAt: String,
+    val collected: Boolean = false,
+    val voteStatus: String = "",
     val tags: List<TagItem>,
     val answers: List<AnswerItem>,
     val comments: List<CommentItem>,
@@ -257,6 +262,19 @@ fun voteTypeLabel(raw: String): String {
         "upvote", "up", "vote_up" -> "点赞"
         "downvote", "down", "vote_down" -> "点踩"
         else -> raw.ifBlank { "投票" }
+    }
+}
+
+fun String.isUpVoted(): Boolean {
+    return lowercase() in setOf("up", "upvote", "vote_up", "liked")
+}
+
+fun QuestionDetail.shareUrl(): String {
+    val normalizedBase = AppDefaults.defaultBaseUrl.removeSuffix("/")
+    return if (urlTitle.isNotBlank()) {
+        "$normalizedBase/questions/$id/$urlTitle"
+    } else {
+        "$normalizedBase/questions/$id"
     }
 }
 

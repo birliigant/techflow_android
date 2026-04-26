@@ -11,6 +11,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -59,6 +60,21 @@ interface TechFlowApi {
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<CommentDto>>
+
+    @POST("answer/api/v1/vote/up")
+    suspend fun voteUp(@Body request: VoteRequest): ApiEnvelope<VoteResponse>
+
+    @POST("answer/api/v1/collection/switch")
+    suspend fun switchCollection(@Body request: CollectionSwitchRequest): ApiEnvelope<CollectionSwitchResponse>
+
+    @POST("answer/api/v1/comment")
+    suspend fun addComment(@Body request: AddCommentRequest): ApiEnvelope<CommentDto>
+
+    @POST("answer/api/v1/report")
+    suspend fun addReport(@Body request: AddReportRequest): ApiEnvelope<JsonObject?>
+
+    @POST("answer/api/v1/answer")
+    suspend fun createAnswer(@Body request: CreateAnswerRequest): ApiEnvelope<JsonObject?>
 
     @POST("answer/api/v1/user/login/email")
     suspend fun loginWithEmail(@Body request: EmailLoginRequest): ApiEnvelope<JsonObject>

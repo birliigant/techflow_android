@@ -21,6 +21,10 @@ import com.birliigant.techflow.data.local.CachedQuestionEntity
 import com.birliigant.techflow.data.local.QuestionDao
 import com.birliigant.techflow.data.network.ApiClientProvider
 import com.birliigant.techflow.data.network.ApiEnvelope
+import com.birliigant.techflow.data.network.AddCommentRequest
+import com.birliigant.techflow.data.network.AddReportRequest
+import com.birliigant.techflow.data.network.CollectionSwitchRequest
+import com.birliigant.techflow.data.network.CreateAnswerRequest
 import com.birliigant.techflow.data.network.EmailRegisterRequest
 import com.birliigant.techflow.data.network.EmailLoginRequest
 import com.birliigant.techflow.data.network.normalizeRemoteUrl
@@ -34,6 +38,7 @@ import com.birliigant.techflow.data.network.toSearchPostOrNull
 import com.birliigant.techflow.data.network.toProfessionRequest
 import com.birliigant.techflow.data.network.toRequest
 import com.birliigant.techflow.data.network.toSummary
+import com.birliigant.techflow.data.network.VoteRequest
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.tencent.mmkv.MMKV
@@ -256,6 +261,85 @@ class QuestionRepository(
         val response = apiClientProvider.api().createQuestion(draft.toRequest())
         val payload = response.requireNullableData()
         payload.extractString("id", "question_id", "questionId").orEmpty()
+    }
+
+    suspend fun getCommentsForObject(
+        objectId: String,
+        page: Int = 1,
+        pageSize: Int = 20,
+    ): Result<List<com.birliigant.techflow.core.model.CommentItem>> = runCatching {
+        apiClientProvider.api()
+            .getCommentPage(objectId = objectId, page = page, pageSize = pageSize)
+            .requireData()
+            .list
+            .orEmpty()
+            .map { it.toModel() }
+    }
+
+    suspend fun toggleVoteUp(
+        objectId: String,
+        cancel: Boolean,
+    ): Result<Pair<Int, String>> = runCatching {
+        val response = apiClientProvider.api().voteUp(
+            VoteRequest(
+                objectId = objectId,
+                isCancel = cancel.takeIf { it },
+            ),
+        ).requireData()
+        val votes = response.votes ?: response.upVotes ?: 0
+        votes to response.voteStatus.orEmpty()
+    }
+
+    suspend fun toggleCollection(
+        objectId: String,
+        collected: Boolean,
+    ): Result<Int> = runCatching {
+        apiClientProvider.api().switchCollection(
+            CollectionSwitchRequest(
+                objectId = objectId,
+                bookmark = !collected,
+            ),
+        ).requireData().objectCollectionCount ?: 0
+    }
+
+    suspend fun addComment(
+        objectId: String,
+        content: String,
+        replyCommentId: String? = null,
+    ): Result<com.birliigant.techflow.core.model.CommentItem> = runCatching {
+        apiClientProvider.api().addComment(
+            AddCommentRequest(
+                objectId = objectId,
+                originalText = content,
+                replyCommentId = replyCommentId,
+            ),
+        ).requireData().toModel()
+    }
+
+    suspend fun reportObject(
+        objectId: String,
+        content: String,
+        reportType: Int = 1,
+    ): Result<Unit> = runCatching {
+        apiClientProvider.api().addReport(
+            AddReportRequest(
+                objectId = objectId,
+                reportType = reportType,
+                content = content.ifBlank { null },
+            ),
+        ).requireNullableData()
+    }
+
+    suspend fun createAnswer(
+        questionId: String,
+        content: String,
+    ): Result<Unit> = runCatching {
+        apiClientProvider.api().createAnswer(
+            CreateAnswerRequest(
+                questionId = questionId,
+                content = content,
+            ),
+        ).requireNullableData()
     }
 
     private suspend fun cacheQuestions(questions: List<QuestionSummary>) {
@@ -489,8 +573,11 @@ private fun CachedQuestionEntity.toDetailFallback(): QuestionDetail {
         authorAvatar = null,
         answerCount = answerCount,
         voteCount = voteCount,
+        collectionCount = 0,
         viewCount = viewCount,
         createdAt = createdAt,
+        collected = false,
+        voteStatus = "",
         tags = tags.map { TagItem(name = it) },
         answers = emptyList(),
         comments = emptyList(),
