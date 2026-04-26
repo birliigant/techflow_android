@@ -470,58 +470,67 @@ private fun QuestionCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .clickable(onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = question.title,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            AvatarImage(
-                imageUrl = question.authorAvatar,
-                fallbackText = question.authorName,
-                modifier = Modifier
-                    .size(36.dp)
-                    .padding(top = 2.dp),
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = question.authorName,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onAuthorClick),
-                )
-                Text(
-                    text = "@${question.authorUsername} · 提问于 ${formatDisplayDate(question.createdAt).ifBlank { "刚刚" }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            StatText("${question.voteCount} 个点赞")
-            AcceptedAnswerStat(
-                answerCount = question.answerCount,
-                accepted = question.accepted,
-            )
-            StatText("${question.viewCount} 次浏览")
-        }
         if (question.excerpt.isNotBlank()) {
             Text(
                 text = question.excerpt,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AvatarImage(
+                imageUrl = question.authorAvatar,
+                fallbackText = question.authorName,
+                modifier = Modifier.size(42.dp),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = question.authorName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onAuthorClick),
+                )
+                Text(
+                    text = "@${question.authorUsername}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = "提问于 ${formatDisplayDate(question.createdAt).ifBlank { "刚刚" }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatPill(text = "${question.voteCount} 个点赞")
+            AcceptedAnswerStat(
+                answerCount = question.answerCount,
+                accepted = question.accepted,
+            )
+            StatPill(text = "${question.viewCount} 次浏览")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             question.tags.take(2).forEachIndexed { index, tag ->
@@ -539,12 +548,18 @@ private fun QuestionCard(
 }
 
 @Composable
-private fun StatText(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+private fun StatPill(text: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable
@@ -553,24 +568,34 @@ private fun AcceptedAnswerStat(
     accepted: Boolean,
 ) {
     val acceptedColor = Color(0xFF1E8E5A)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    Surface(
+        color = if (accepted) {
+            acceptedColor.copy(alpha = 0.12f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        },
+        shape = RoundedCornerShape(10.dp),
     ) {
-        if (accepted) {
-            Icon(
-                imageVector = Icons.Filled.CheckCircle,
-                contentDescription = "已有最佳回答",
-                tint = acceptedColor,
-                modifier = Modifier.size(16.dp),
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (accepted) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "已有最佳回答",
+                    tint = acceptedColor,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Text(
+                text = "${answerCount} 个回答",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (accepted) acceptedColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (accepted) FontWeight.SemiBold else FontWeight.Normal,
             )
         }
-        Text(
-            text = "${answerCount} 个回答",
-            style = MaterialTheme.typography.bodySmall,
-            color = if (accepted) acceptedColor else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (accepted) FontWeight.SemiBold else FontWeight.Normal,
-        )
     }
 }
 
