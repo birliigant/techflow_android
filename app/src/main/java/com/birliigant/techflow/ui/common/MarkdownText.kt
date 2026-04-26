@@ -2,6 +2,7 @@ package com.birliigant.techflow.ui.common
 
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -108,12 +109,19 @@ private fun MarkdownImage(
     url: String,
     alt: String,
 ) {
+    val uriHandler = LocalUriHandler.current
+    val resolvedUrl = remember(url) { url.toResolvableRemoteUrl() }
     Surface(
+        modifier = Modifier.clickable {
+            if (resolvedUrl.isNotBlank()) {
+                uriHandler.openUri(resolvedUrl)
+            }
+        },
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
     ) {
         SubcomposeAsyncImage(
-            model = url.normalizeRemoteUrl(),
+            model = resolvedUrl,
             contentDescription = alt,
             modifier = Modifier
                 .fillMaxWidth()
@@ -127,11 +135,22 @@ private fun MarkdownImage(
                 )
             },
             error = {
-                Text(
-                    text = alt.ifBlank { "图片加载失败" },
+                Column(
                     modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = alt.ifBlank { "图片加载失败" },
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    if (resolvedUrl.isNotBlank()) {
+                        Text(
+                            text = "点击打开原图",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
             },
         )
     }
@@ -213,6 +232,7 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
     val blocks = mutableListOf<MarkdownBlock>()
     val paragraph = mutableListOf<String>()
     val imageRegex = Regex("^!\\[(.*?)]\\((.*?)\\)$")
+    val imageLinkRegex = Regex("^\\[(.*?)]\\((.*?)\\)$")
 
     fun flushParagraph() {
         if (paragraph.isNotEmpty()) {
@@ -234,6 +254,21 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
                         alt = match.groupValues[1],
                         url = match.groupValues[2],
                     )
+                }
+
+                imageLinkRegex.matches(line.trim()) -> {
+                    val match = imageLinkRegex.matchEntire(line.trim()) ?: return@forEach
+                    val alt = match.groupValues[1]
+                    val url = match.groupValues[2]
+                    if (looksLikeImageUrl(url) || looksLikeImageUrl(alt)) {
+                        flushParagraph()
+                        blocks += MarkdownBlock.Image(
+                            alt = alt,
+                            url = url,
+                        )
+                    } else {
+                        paragraph += line.trim()
+                    }
                 }
 
                 line.startsWith("#") -> {
@@ -266,7 +301,7 @@ private fun buildMarkdownAnnotatedString(
     boldStyle: SpanStyle,
     codeStyle: SpanStyle,
 ): AnnotatedString {
-    val linkRegex = Regex("\\[(.*?)]\\((https?://[^\\s)]+)\\)")
+    val linkRegex = Regex("\\[(.*?)]\\(([^\\s)]+)\\)")
     val rawUrlRegex = Regex("https?://[^\\s)]+")
 
     return buildAnnotatedString {
@@ -275,7 +310,7 @@ private fun buildMarkdownAnnotatedString(
             val linkMatch = linkRegex.find(text, index)
             if (linkMatch != null && linkMatch.range.first == index) {
                 val label = linkMatch.groupValues[1]
-                val url = linkMatch.groupValues[2]
+                val url = linkMatch.groupValues[2].toResolvableRemoteUrl()
                 pushStringAnnotation(UrlAnnotation, url)
                 withStyle(linkStyle) { append(label) }
                 pop()
@@ -319,4 +354,22 @@ private fun buildMarkdownAnnotatedString(
             index += 1
         }
     }
+}
+
+private fun String.toResolvableRemoteUrl(): String {
+    val normalized = normalizeRemoteUrl().trim()
+    if (normalized.startsWith("http://image.kid1934.top/")) {
+        return normalized.replaceFirst("http://", "https://")
+    }
+    return normalized
+}
+
+private fun looksLikeImageUrl(value: String): Boolean {
+    val target = value.lowercase()
+    return target.endsWith(".png") ||
+        target.endsWith(".jpg") ||
+        target.endsWith(".jpeg") ||
+        target.endsWith(".gif") ||
+        target.endsWith(".webp") ||
+        target.endsWith(".svg")
 }
