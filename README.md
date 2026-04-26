@@ -273,6 +273,7 @@ app/src/main/java/com/birliigant/techflow
 - 时间字段可能是 `created_at` 或 `create_time`
 - 正文字段可能落在 `content` / `parsed_text` / `html`
 - `accepted` 可能是布尔、字符串或数值
+- 首页列表里“是否有最佳回答”既兼容 `accepted`，也兼容 `accepted_answer_id`
 
 这些兼容逻辑集中在 [NetworkModels.kt](app/src/main/java/com/birliigant/techflow/data/network/NetworkModels.kt) 中。
 

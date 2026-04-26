@@ -127,6 +127,7 @@ data class QuestionDto(
     @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
     val accepted: JsonElement? = null,
+    @SerializedName("accepted_answer_id") val acceptedAnswerId: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("user_info") val userInfo: UserDto? = null,
@@ -291,7 +292,7 @@ fun SearchItemDto.toSearchPostOrNull(): SearchPostItem? {
         viewCount = source.viewCount ?: 0,
         createdAt = source.createdAt.orEmpty(),
         tags = source.tags.orEmpty().map { it.toModel() },
-        accepted = source.accepted.toBooleanCompat(),
+        accepted = source.hasAcceptedAnswer(),
     )
 }
 
@@ -358,7 +359,7 @@ fun QuestionDto.toSummary(): QuestionSummary {
         viewCount = viewCount ?: 0,
         createdAt = createdAt.orEmpty(),
         tags = tags.orEmpty().map { it.toModel() },
-        accepted = accepted.toBooleanCompat(),
+        accepted = hasAcceptedAnswer(),
     )
 }
 
@@ -530,6 +531,12 @@ private fun JsonElement?.toBooleanCompat(): Boolean {
         }
     }
     return false
+}
+
+private fun QuestionDto.hasAcceptedAnswer(): Boolean {
+    if (accepted.toBooleanCompat()) return true
+    val acceptedId = acceptedAnswerId.orEmpty().trim()
+    return acceptedId.isNotBlank() && acceptedId != "0"
 }
 
 private fun JsonElement?.toAvatarUrl(): String? {
