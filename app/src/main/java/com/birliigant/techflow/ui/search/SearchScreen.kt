@@ -65,11 +65,11 @@ enum class SearchTab(val label: String) {
     USERS("用户"),
 }
 
-enum class SearchSort(val label: String) {
-    RELEVANCE("相关性"),
-    NEWEST("最新的"),
-    ACTIVE("活跃的"),
-    SCORE("评分"),
+enum class SearchSort(val label: String, val apiValue: String) {
+    RELEVANCE("相关性", "relevance"),
+    NEWEST("最新的", "newest"),
+    ACTIVE("活跃的", "active"),
+    SCORE("评分", "score"),
 }
 
 data class SearchUiState(
@@ -114,7 +114,11 @@ class SearchViewModel(
     }
 
     fun onSortSelected(sort: SearchSort) {
+        val submittedQuery = _uiState.value.submittedQuery
         _uiState.update { it.copy(selectedSort = sort) }
+        if (submittedQuery.isNotBlank()) {
+            performSearch(query = submittedQuery, keepSelectedTab = true)
+        }
     }
 
     fun openHints() {
@@ -140,8 +144,16 @@ class SearchViewModel(
             }
             return
         }
+        performSearch(query = query, keepSelectedTab = false)
+    }
 
+    private fun performSearch(
+        query: String,
+        keepSelectedTab: Boolean,
+    ) {
         viewModelScope.launch {
+            val requestedSort = _uiState.value.selectedSort
+            val currentTab = _uiState.value.selectedTab
             _uiState.update {
                 it.copy(
                     isLoading = true,
@@ -150,7 +162,13 @@ class SearchViewModel(
                 )
             }
             val signals = SearchSignals.from(query)
-            val postsDeferred = async { questionRepository.searchPosts(query = query, pageSize = 30) }
+            val postsDeferred = async {
+                questionRepository.searchPosts(
+                    query = query,
+                    order = requestedSort.apiValue,
+                    pageSize = 30,
+                )
+            }
             val tagsDeferred = async { tagRepository.getAllTags() }
             val usersDeferred = async { userRepository.getCommunityUsers() }
 
@@ -174,7 +192,7 @@ class SearchViewModel(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    selectedTab = preferredTab,
+                    selectedTab = if (keepSelectedTab) currentTab else preferredTab,
                     posts = postResult.getOrNull().orEmpty(),
                     tags = filteredTags,
                     users = filteredUsers,
@@ -196,7 +214,6 @@ fun SearchScreen(
     onTagClick: (TagDetail) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val sortedPosts = uiState.posts.sortedWith(uiState.selectedSort.comparator())
 
     Column(
         modifier = Modifier
@@ -241,7 +258,7 @@ fun SearchScreen(
                     }
                     Text(
                         text = when (uiState.selectedTab) {
-                            SearchTab.QUESTIONS -> "${sortedPosts.size} 个结果"
+                            SearchTab.QUESTIONS -> "${uiState.posts.size} 个结果"
                             SearchTab.TAGS -> "${uiState.tags.size} 个标签"
                             SearchTab.USERS -> "${uiState.users.size} 个用户"
                         },
@@ -289,10 +306,10 @@ fun SearchScreen(
 
             when (uiState.selectedTab) {
                 SearchTab.QUESTIONS -> {
-                    if (!uiState.isLoading && sortedPosts.isEmpty() && uiState.submittedQuery.isNotBlank() && uiState.errorMessage == null) {
+                    if (!uiState.isLoading && uiState.posts.isEmpty() && uiState.submittedQuery.isNotBlank() && uiState.errorMessage == null) {
                         item { EmptySearchState("没有找到相关的问题或回答内容。") }
                     }
-                    itemsIndexed(sortedPosts) { _, post ->
+                    itemsIndexed(uiState.posts) { _, post ->
                         SearchPostCard(
                             post = post,
                             onClick = { onQuestionClick(post.questionId) },
@@ -663,17 +680,5 @@ private data class SearchSignals(
                 userFilter = userMatch,
             )
         }
-    }
-}
-
-private fun SearchSort.comparator(): Comparator<SearchPostItem> {
-    return when (this) {
-        SearchSort.RELEVANCE -> compareByDescending<SearchPostItem> { it.voteCount + it.answerCount * 2 }
-            .thenByDescending { it.createdAt.toLongOrNull() ?: 0L }
-        SearchSort.NEWEST -> compareByDescending<SearchPostItem> { it.createdAt.toLongOrNull() ?: 0L }
-        SearchSort.ACTIVE -> compareByDescending<SearchPostItem> { it.answerCount }
-            .thenByDescending { it.createdAt.toLongOrNull() ?: 0L }
-        SearchSort.SCORE -> compareByDescending<SearchPostItem> { it.voteCount }
-            .thenByDescending { it.answerCount }
     }
 }

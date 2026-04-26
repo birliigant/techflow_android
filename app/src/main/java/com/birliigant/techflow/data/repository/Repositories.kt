@@ -24,9 +24,11 @@ import com.birliigant.techflow.data.network.ApiEnvelope
 import com.birliigant.techflow.data.network.EmailRegisterRequest
 import com.birliigant.techflow.data.network.EmailLoginRequest
 import com.birliigant.techflow.data.network.normalizeRemoteUrl
+import com.birliigant.techflow.data.network.toBadgeAwardList
 import com.birliigant.techflow.data.network.toDetail
 import com.birliigant.techflow.data.network.toInfoRequest
 import com.birliigant.techflow.data.network.toModel
+import com.birliigant.techflow.data.network.toPublicUserProfile
 import com.birliigant.techflow.data.network.toQuestionSummaryOrNull
 import com.birliigant.techflow.data.network.toSearchPostOrNull
 import com.birliigant.techflow.data.network.toProfessionRequest
@@ -173,11 +175,12 @@ class QuestionRepository(
 ) {
     suspend fun searchPosts(
         query: String,
+        order: String = "relevance",
         page: Int = 1,
         pageSize: Int = 20,
     ): Result<List<SearchPostItem>> = runCatching {
         apiClientProvider.api()
-            .search(query = query, page = page, pageSize = pageSize)
+            .search(query = query, order = order, page = page, pageSize = pageSize)
             .requireData()
             .list
             .orEmpty()
@@ -186,10 +189,11 @@ class QuestionRepository(
 
     suspend fun searchQuestions(
         query: String,
+        order: String = "relevance",
         page: Int = 1,
         pageSize: Int = 20,
     ): Result<List<QuestionSummary>> = runCatching {
-        searchPosts(query = query, page = page, pageSize = pageSize)
+        searchPosts(query = query, order = order, page = page, pageSize = pageSize)
             .getOrThrow()
             .filter { it.objectType == "question" }
             .map {
@@ -201,13 +205,13 @@ class QuestionRepository(
                     authorUsername = it.authorUsername,
                     authorAvatar = it.authorAvatar,
                     answerCount = it.answerCount,
-                voteCount = it.voteCount,
-                viewCount = it.viewCount,
-                createdAt = it.createdAt,
-                tags = it.tags,
-                accepted = it.accepted,
-            )
-    }
+                    voteCount = it.voteCount,
+                    viewCount = it.viewCount,
+                    createdAt = it.createdAt,
+                    tags = it.tags,
+                    accepted = it.accepted,
+                )
+            }
     }
 
     suspend fun getQuestionPage(
@@ -232,7 +236,11 @@ class QuestionRepository(
                 val api = apiClientProvider.api()
                 val question = api.getQuestionDetail(questionId).requireData()
                 val answers = runCatching {
-                    api.getAnswerPage(questionId, 1, 20).requireData().list.orEmpty().map { it.toModel() }
+                    api.getAnswerPage(questionId = questionId, order = "default", page = 1, pageSize = 20)
+                        .requireData()
+                        .list
+                        .orEmpty()
+                        .map { it.toModel() }
                 }.getOrDefault(emptyList())
                 val comments = runCatching {
                     api.getCommentPage(questionId, 1, 20).requireData().list.orEmpty().map { it.toModel() }
@@ -336,7 +344,11 @@ class UserRepository(
     }
 
     suspend fun getPublicProfile(username: String): Result<PublicUserProfile> = runCatching {
-        apiClientProvider.api().getPublicUserProfile(username).requireData().toModel()
+        apiClientProvider.api()
+            .getPublicUserProfile(username)
+            .requireData()
+            .toPublicUserProfile()
+            ?: error("服务端没有返回有效的用户主页信息")
     }
 
     suspend fun getPersonalQuestions(
@@ -345,7 +357,7 @@ class UserRepository(
         pageSize: Int = 20,
     ): Result<List<QuestionSummary>> = runCatching {
         apiClientProvider.api()
-            .getPersonalQuestionPage(username, page, pageSize)
+            .getPersonalQuestionPage(username = username, order = "newest", page = page, pageSize = pageSize)
             .requireData()
             .list
             .orEmpty()
@@ -358,7 +370,7 @@ class UserRepository(
         pageSize: Int = 20,
     ): Result<List<com.birliigant.techflow.core.model.AnswerItem>> = runCatching {
         apiClientProvider.api()
-            .getPersonalAnswerPage(username, page, pageSize)
+            .getPersonalAnswerPage(username = username, order = "newest", page = page, pageSize = pageSize)
             .requireData()
             .list
             .orEmpty()
@@ -424,7 +436,7 @@ class UserRepository(
         } else {
             apiClientProvider.api().getUserBadgeAwards(username)
         }
-        response.requireData().list.orEmpty().map { it.toModel() }
+        response.requireData().toBadgeAwardList()
     }
 
     suspend fun logout() {

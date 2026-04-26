@@ -2,7 +2,7 @@
 
 一个基于 Apache Answer 后端接口构建的原生 Android 客户端，面向 `SIPC TechFlow` 学术问答社区的移动端使用场景。
 
-本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md) 和 [docs/接口文档-详细版.md](docs/接口文档-详细版.md) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
+本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md)、[docs/接口文档-详细版.md](docs/接口文档-详细版.md)、[docs/swagger.json](docs/swagger.json) 与 [docs/swagger.yaml](docs/swagger.yaml) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
 
 ## 1. 项目定位
 
@@ -222,7 +222,7 @@ app/src/main/java/com/birliigant/techflow
 ### 5.5 用户主页
 
 - 支持查看任意用户主页
-- 支持概览 / 回答 / 问题 / 收藏视图
+- 支持概览 / 回答 / 问题 / 收藏 / 声望 / 评论 / 得票 / 徽章视图
 - 展示基础资料、专业、简介、最近内容
 - 作为社区内“人物维度”的重要信息入口
 
@@ -274,10 +274,20 @@ app/src/main/java/com/birliigant/techflow
 - 正文字段可能落在 `content` / `parsed_text` / `html`
 - `accepted` 可能是布尔、字符串或数值
 - 首页列表里“是否有最佳回答”既兼容 `accepted`，也兼容 `accepted_answer_id`
+- 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
+- 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
 
-这些兼容逻辑集中在 [NetworkModels.kt](app/src/main/java/com/birliigant/techflow/data/network/NetworkModels.kt) 中。
+### 6.3 Swagger 与现网双基准
 
-### 6.3 结构轻，但扩展空间大
+为了尽量避免“详细版摘要没展开完整 schema”带来的误判，项目当前遵循这样的接口校准顺序：
+
+- 先看 [docs/接口文档-详细版.md](docs/接口文档-详细版.md) 快速定位接口
+- 再看 [docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml) 获取完整请求体、响应体和模型引用
+- 如果 Swagger 与现网真实返回不一致，再在映射层做兼容处理
+
+这些兼容逻辑集中在 [NetworkModels.kt](app/src/main/java/com/birliigant/techflow/data/network/NetworkModels.kt) 和 [Repositories.kt](app/src/main/java/com/birliigant/techflow/data/repository/Repositories.kt) 中。
+
+### 6.4 结构轻，但扩展空间大
 
 项目没有引入过重的 DI 框架，而是使用 [AppContainer.kt](app/src/main/java/com/birliigant/techflow/app/AppContainer.kt) 做轻量依赖管理。
 
@@ -287,7 +297,7 @@ app/src/main/java/com/birliigant/techflow
 - 更适合快速迭代
 - 未来如有需要，仍可平滑迁移到 `Hilt / Koin`
 
-### 6.4 本地缓存策略简单但实用
+### 6.5 本地缓存策略简单但实用
 
 当前缓存只覆盖问题列表和部分详情兜底，但对一个社区类 App 来说已经足以明显改善：
 
@@ -360,7 +370,6 @@ app/build/outputs/apk/debug/app-debug.apk
 - 头像上传目前尚未实现写接口接入
 - 回答发布、评论发布、点赞、收藏、关注等互动能力还可以继续补齐
 - 通知系统页面和消息中心还未完整落地
-- 搜索页目前没有做成独立的完整检索体验
 - 分区页、通知页、更多个人中心能力仍可进一步丰富
 
 换句话说，当前项目已经是“可使用的 MVP+”，但还没有到“功能完全对齐网页端”的阶段。
@@ -380,11 +389,11 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ### 10.2 搜索体验增强
 
-- 独立搜索页
 - 搜索历史
 - 热门搜索
 - 多维筛选
-- 按标签 / 用户 / 标题 / 内容检索
+- 更完整的高级搜索语法支持
+- 按标签 / 用户 / 标题 / 内容检索的进一步精细化
 
 ### 10.3 通知体系
 
@@ -428,7 +437,9 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## 12. 参考文档
 
-- 接口文档：[docs/接口文档.md](docs/接口文档.md)
+- 接口文档入口：[docs/接口文档-入口.md](docs/接口文档-入口.md)
+- 接口文档详细版：[docs/接口文档-详细版.md](docs/接口文档-详细版.md)
+- Swagger 原始定义：[docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml)
 - 图标资源：[docs/img/logo.svg](docs/img/logo.svg)
 - 首页 / UI 参考图：`docs/img/` 目录下相关图片资源
 

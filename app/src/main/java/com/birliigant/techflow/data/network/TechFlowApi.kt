@@ -4,6 +4,7 @@ import com.birliigant.techflow.core.model.normalizeBaseUrl
 import com.birliigant.techflow.data.repository.ConfigRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -29,6 +30,7 @@ interface TechFlowApi {
     @GET("answer/api/v1/search")
     suspend fun search(
         @Query("q") query: String,
+        @Query("order") order: String = "relevance",
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<SearchItemDto>>
@@ -46,6 +48,7 @@ interface TechFlowApi {
     @GET("answer/api/v1/answer/page")
     suspend fun getAnswerPage(
         @Query("question_id") questionId: String,
+        @Query("order") order: String = "default",
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<AnswerDto>>
@@ -76,11 +79,12 @@ interface TechFlowApi {
     suspend fun getCommunityUsers(): ApiEnvelope<CommunityUsersDto>
 
     @GET("answer/api/v1/personal/user/info")
-    suspend fun getPublicUserProfile(@Query("username") username: String): ApiEnvelope<PublicUserProfileDto>
+    suspend fun getPublicUserProfile(@Query("username") username: String): ApiEnvelope<JsonElement>
 
     @GET("answer/api/v1/personal/question/page")
     suspend fun getPersonalQuestionPage(
         @Query("username") username: String,
+        @Query("order") order: String = "newest",
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<QuestionDto>>
@@ -88,6 +92,7 @@ interface TechFlowApi {
     @GET("answer/api/v1/personal/answer/page")
     suspend fun getPersonalAnswerPage(
         @Query("username") username: String,
+        @Query("order") order: String = "newest",
         @Query("page") page: Int,
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<AnswerDto>>
@@ -121,12 +126,12 @@ interface TechFlowApi {
     @GET("answer/api/v1/badge/user/awards")
     suspend fun getUserBadgeAwards(
         @Query("username") username: String,
-    ): ApiEnvelope<PageEnvelope<BadgeAwardDto>>
+    ): ApiEnvelope<JsonElement>
 
     @GET("answer/api/v1/badge/user/awards/recent")
     suspend fun getRecentUserBadgeAwards(
         @Query("username") username: String,
-    ): ApiEnvelope<PageEnvelope<BadgeAwardDto>>
+    ): ApiEnvelope<JsonElement>
 
     @GET("answer/api/v1/user/logout")
     suspend fun logout(): ApiEnvelope<JsonObject?>

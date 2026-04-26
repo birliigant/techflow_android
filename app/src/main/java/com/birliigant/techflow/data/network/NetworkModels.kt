@@ -20,6 +20,7 @@ import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.core.model.VoteActivity
 import com.birliigant.techflow.core.model.markdownPreview
 import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 
 data class ApiEnvelope<T>(
@@ -345,6 +346,41 @@ fun PublicUserProfileDto.toModel(): PublicUserProfile {
     )
 }
 
+fun JsonElement?.toPublicUserProfile(): PublicUserProfile? {
+    val root = this?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+    val source = root.get("info")?.takeIf { it.isJsonObject }?.asJsonObject ?: root
+    val resolvedUsername = source.stringValue("username").orEmpty()
+    return PublicUserProfile(
+        username = resolvedUsername,
+        displayName = source.stringValue("display_name").orEmpty().ifBlank { resolvedUsername },
+        avatar = source.get("avatar").toAvatarUrl(),
+        rank = source.intValue("rank") ?: 0,
+        answerCount = source.intValue("answer_count") ?: 0,
+        questionCount = source.intValue("question_count") ?: 0,
+        followCount = source.intValue("follow_count") ?: 0,
+        bio = source.stringValue("bio").orEmpty(),
+        website = source.stringValue("website").orEmpty(),
+        location = source.stringValue("location").orEmpty(),
+        profession = source.stringValue("profession").orEmpty(),
+        createdAt = source.stringValue("created_at").orEmpty(),
+        lastLoginAt = source.stringValue("last_login_date").orEmpty(),
+    )
+}
+
+fun JsonElement?.toBadgeAwardList(): List<BadgeAward> {
+    val items = when {
+        this == null || isJsonNull -> emptyList()
+        isJsonArray -> asJsonArray.mapNotNull { it.takeIf(JsonElement::isJsonObject)?.asJsonObject }
+        isJsonObject -> asJsonObject.get("list")
+            ?.takeIf { it.isJsonArray }
+            ?.asJsonArray
+            ?.mapNotNull { it.takeIf(JsonElement::isJsonObject)?.asJsonObject }
+            .orEmpty()
+        else -> emptyList()
+    }
+    return items.map { it.toBadgeAwardModel() }
+}
+
 fun QuestionDto.toSummary(): QuestionSummary {
     val contentText = content.orEmpty().ifBlank { parsedText.orEmpty() }.ifBlank { html.orEmpty() }
     return QuestionSummary(
@@ -537,6 +573,28 @@ private fun QuestionDto.hasAcceptedAnswer(): Boolean {
     if (accepted.toBooleanCompat()) return true
     val acceptedId = acceptedAnswerId.orEmpty().trim()
     return acceptedId.isNotBlank() && acceptedId != "0"
+}
+
+private fun JsonObject.toBadgeAwardModel(): BadgeAward {
+    return BadgeAward(
+        id = stringValue("id").orEmpty(),
+        name = stringValue("name").orEmpty(),
+        icon = get("icon").toAvatarUrl(),
+        level = stringValue("level").orEmpty(),
+        earnedCount = intValue("earned_count") ?: 0,
+    )
+}
+
+private fun JsonObject.stringValue(key: String): String? {
+    val value = get(key) ?: return null
+    if (value.isJsonNull) return null
+    return value.asString
+}
+
+private fun JsonObject.intValue(key: String): Int? {
+    val value = get(key) ?: return null
+    if (value.isJsonNull) return null
+    return runCatching { value.asInt }.getOrNull()
 }
 
 private fun JsonElement?.toAvatarUrl(): String? {
