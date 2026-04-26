@@ -51,7 +51,8 @@ import com.birliigant.techflow.ui.settings.SettingsScreen
 import com.birliigant.techflow.ui.settings.SettingsViewModel
 
 private data class TopLevelRoute(
-    val route: String,
+    val routePattern: String,
+    val destination: String,
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
 )
@@ -59,7 +60,7 @@ private data class TopLevelRoute(
 private object Routes {
     const val home = "home"
     const val ask = "ask"
-    const val me = "me"
+    const val mePattern = "me?tab={tab}"
     const val register = "register"
     const val searchPattern = "search?q={q}"
     const val tags = "tags"
@@ -83,12 +84,19 @@ private object Routes {
     fun profile(username: String, tab: String = ProfileTab.OVERVIEW.routeValue): String {
         return "profile/${Uri.encode(username)}?tab=${Uri.encode(tab)}"
     }
+    fun me(tab: String = ProfileTab.OVERVIEW.routeValue): String {
+        return if (tab == ProfileTab.OVERVIEW.routeValue) {
+            "me"
+        } else {
+            "me?tab=${Uri.encode(tab)}"
+        }
+    }
 }
 
 private val topRoutes = listOf(
-    TopLevelRoute(Routes.home, "首页", Icons.Outlined.Home),
-    TopLevelRoute(Routes.ask, "提问", Icons.Outlined.AddCircle),
-    TopLevelRoute(Routes.me, "我的", Icons.Outlined.AccountCircle),
+    TopLevelRoute(Routes.home, Routes.home, "首页", Icons.Outlined.Home),
+    TopLevelRoute(Routes.ask, Routes.ask, "提问", Icons.Outlined.AddCircle),
+    TopLevelRoute(Routes.mePattern, Routes.me(), "我的", Icons.Outlined.AccountCircle),
 )
 
 @Composable
@@ -96,7 +104,7 @@ fun TechFlowApp(appContainer: AppContainer) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
-    val showBottomBar = currentDestination?.route != Routes.detailPattern
+    val showBottomBar = currentDestination?.route in topRoutes.map { it.routePattern }.toSet()
 
     fun navigateToTopLevel(route: String) {
         navController.navigate(route) {
@@ -110,9 +118,9 @@ fun TechFlowApp(appContainer: AppContainer) {
 
     fun openCurrentUserProfile(initialTab: String = ProfileTab.OVERVIEW.routeValue) {
         val currentUser = appContainer.sessionRepository.currentUser.value
-        currentUser?.username?.takeIf { it.isNotBlank() }?.let { username ->
-            navController.navigate(Routes.profile(username, initialTab))
-        } ?: navigateToTopLevel(Routes.me)
+        currentUser?.username?.takeIf { it.isNotBlank() }?.let {
+            navigateToTopLevel(Routes.me(initialTab))
+        } ?: navigateToTopLevel(Routes.me())
     }
 
     fun openUserProfile(username: String) {
@@ -127,10 +135,10 @@ fun TechFlowApp(appContainer: AppContainer) {
             if (showBottomBar) {
                 NavigationBar {
                     topRoutes.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
+                        val selected = currentDestination?.hierarchy?.any { it.route == item.routePattern } == true
                         NavigationBarItem(
                             selected = selected,
-                            onClick = { navigateToTopLevel(item.route) },
+                            onClick = { navigateToTopLevel(item.destination) },
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
                         )
@@ -157,7 +165,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
-                    onOpenMe = { navigateToTopLevel(Routes.me) },
+                    onOpenMe = { navigateToTopLevel(Routes.me()) },
                     onOpenRegister = { navController.navigate(Routes.register) },
                     onOpenSearch = { query -> navController.navigate(Routes.search(query)) },
                     onOpenTags = { navController.navigate(Routes.tags) },
@@ -179,12 +187,21 @@ fun TechFlowApp(appContainer: AppContainer) {
                             )
                         },
                     ),
-                    onGoProfile = { navigateToTopLevel(Routes.me) },
+                    onGoProfile = { navigateToTopLevel(Routes.me()) },
                     onSubmitted = { navigateToTopLevel(Routes.home) },
                 )
             }
 
-            composable(Routes.me) {
+            composable(
+                route = Routes.mePattern,
+                arguments = listOf(
+                    navArgument("tab") {
+                        type = NavType.StringType
+                        defaultValue = ProfileTab.OVERVIEW.routeValue
+                    },
+                ),
+            ) { entry ->
+                val tab = ProfileTab.from(Uri.decode(entry.arguments?.getString("tab")))
                 MeScreen(
                     viewModel = androidx.lifecycle.viewmodel.compose.viewModel(
                         factory = appViewModelFactory {
@@ -196,6 +213,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                     ),
                     sessionRepository = appContainer.sessionRepository,
                     userRepository = appContainer.userRepository,
+                    initialTab = tab,
                     onQuestionClick = { id -> navController.navigate(Routes.detail(id)) },
                     onOpenCollections = { openCurrentUserProfile(ProfileTab.COLLECTIONS.routeValue) },
                     onOpenSettings = { navController.navigate(Routes.settings) },
@@ -233,6 +251,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                                 questionRepository = appContainer.questionRepository,
                                 tagRepository = appContainer.tagRepository,
                                 userRepository = appContainer.userRepository,
+                                uiPreferenceRepository = appContainer.uiPreferenceRepository,
                             )
                         },
                     ),

@@ -299,7 +299,7 @@ private fun HomeHeader(
                             onDismissRequest = { userMenuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text("用户主页") },
+                                text = { Text("我的主页") },
                                 onClick = {
                                     userMenuExpanded = false
                                     onOpenProfile()

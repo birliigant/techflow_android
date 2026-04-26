@@ -16,15 +16,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,6 +47,7 @@ import com.birliigant.techflow.core.model.TagDetail
 import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.TagRepository
+import com.birliigant.techflow.data.repository.UiPreferenceRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.SectionSwitch
@@ -73,6 +78,7 @@ data class SearchUiState(
     val isLoading: Boolean = false,
     val selectedTab: SearchTab = SearchTab.QUESTIONS,
     val selectedSort: SearchSort = SearchSort.RELEVANCE,
+    val showHintsDialog: Boolean = false,
     val posts: List<SearchPostItem> = emptyList(),
     val tags: List<TagDetail> = emptyList(),
     val users: List<CommunityUser> = emptyList(),
@@ -84,11 +90,16 @@ class SearchViewModel(
     private val questionRepository: QuestionRepository,
     private val tagRepository: TagRepository,
     private val userRepository: UserRepository,
+    private val uiPreferenceRepository: UiPreferenceRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SearchUiState(query = initialQuery))
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     init {
+        if (!uiPreferenceRepository.hasSeenSearchHints()) {
+            _uiState.update { it.copy(showHintsDialog = true) }
+            uiPreferenceRepository.markSearchHintsSeen()
+        }
         if (initialQuery.isNotBlank()) {
             submitSearch()
         }
@@ -104,6 +115,14 @@ class SearchViewModel(
 
     fun onSortSelected(sort: SearchSort) {
         _uiState.update { it.copy(selectedSort = sort) }
+    }
+
+    fun openHints() {
+        _uiState.update { it.copy(showHintsDialog = true) }
+    }
+
+    fun dismissHints() {
+        _uiState.update { it.copy(showHintsDialog = false) }
     }
 
     fun submitSearch() {
@@ -186,8 +205,17 @@ fun SearchScreen(
     ) {
         TechFlowTopBar(
             title = "搜索结果",
+            dense = true,
             onBackClick = onBack,
-        )
+        ) {
+            IconButton(onClick = viewModel::openHints) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = "高级搜索提示",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+        }
 
         SearchEntryBar(
             query = uiState.query,
@@ -202,11 +230,6 @@ fun SearchScreen(
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "搜索结果",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(SearchTab.entries, key = { it.name }) { tab ->
                             SectionSwitch(
@@ -240,10 +263,6 @@ fun SearchScreen(
                         }
                     }
                 }
-            }
-
-            item {
-                SearchHintsCard()
             }
 
             if (uiState.isLoading) {
@@ -307,6 +326,10 @@ fun SearchScreen(
                 }
             }
         }
+
+        if (uiState.showHintsDialog) {
+            SearchHintsDialog(onDismiss = viewModel::dismissHints)
+        }
     }
 }
 
@@ -322,7 +345,7 @@ private fun SearchEntryBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primary)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(horizontal = 18.dp, vertical = 10.dp),
         placeholder = {
             Text(
                 text = "搜索问题、标签、用户",
@@ -517,18 +540,44 @@ private fun SearchUserCard(
 @Composable
 private fun SearchHintsCard() {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("高级搜索提示", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            SearchHintLine("[tag]", "在指定标签中搜索")
-            SearchHintLine("user:username", "根据作者搜索")
-            SearchHintLine("answers:0", "搜索未回答的问题")
-            SearchHintLine("score:3", "评分 3+ 的帖子")
-            SearchHintLine("is:question", "搜索问题")
-            SearchHintLine("is:answer", "搜索回答")
-        }
+        SearchHintsContent(modifier = Modifier.padding(18.dp))
+    }
+}
+
+@Composable
+private fun SearchHintsDialog(
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("知道了")
+            }
+        },
+        title = {
+            Text("高级搜索提示", fontWeight = FontWeight.Bold)
+        },
+        text = {
+            SearchHintsContent()
+        },
+    )
+}
+
+@Composable
+private fun SearchHintsContent(
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        SearchHintLine("[tag]", "在指定标签中搜索")
+        SearchHintLine("user:username", "根据作者搜索")
+        SearchHintLine("answers:0", "搜索未回答的问题")
+        SearchHintLine("score:3", "评分 3+ 的帖子")
+        SearchHintLine("is:question", "搜索问题")
+        SearchHintLine("is:answer", "搜索回答")
     }
 }
 

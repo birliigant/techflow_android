@@ -11,6 +11,7 @@ import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.SiteRepository
 import com.birliigant.techflow.data.repository.TagRepository
+import com.birliigant.techflow.data.repository.UiPreferenceRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.google.gson.Gson
 import com.tencent.mmkv.MMKV
@@ -27,6 +28,7 @@ class AppContainer(application: Application) {
     ).fallbackToDestructiveMigration().build()
 
     val configRepository = ConfigRepository(storage)
+    val uiPreferenceRepository = UiPreferenceRepository(storage)
     val sessionRepository = SessionRepository(storage, gson)
     private val apiClientProvider = ApiClientProvider(
         configRepository = configRepository,

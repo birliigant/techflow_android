@@ -121,12 +121,12 @@ interface TechFlowApi {
     @GET("answer/api/v1/badge/user/awards")
     suspend fun getUserBadgeAwards(
         @Query("username") username: String,
-    ): ApiEnvelope<List<BadgeAwardDto>>
+    ): ApiEnvelope<PageEnvelope<BadgeAwardDto>>
 
     @GET("answer/api/v1/badge/user/awards/recent")
     suspend fun getRecentUserBadgeAwards(
         @Query("username") username: String,
-    ): ApiEnvelope<List<BadgeAwardDto>>
+    ): ApiEnvelope<PageEnvelope<BadgeAwardDto>>
 
     @GET("answer/api/v1/user/logout")
     suspend fun logout(): ApiEnvelope<JsonObject?>

@@ -190,20 +190,27 @@ fun SectionSwitch(
     onClick: () -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = if (selected) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
-        modifier = Modifier.border(
-            width = 0.8.dp,
-            color = MaterialTheme.colorScheme.outline,
-            shape = RoundedCornerShape(4.dp),
-        ),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else Color.White,
+        shadowElevation = if (selected) 4.dp else 0.dp,
+        modifier = Modifier
+            .border(
+                width = 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
+                },
+                shape = RoundedCornerShape(12.dp),
+            ),
         onClick = onClick,
     ) {
         Text(
             text = text,
             color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }

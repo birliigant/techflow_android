@@ -135,6 +135,7 @@ fun MeScreen(
     viewModel: MeViewModel,
     sessionRepository: SessionRepository,
     userRepository: UserRepository,
+    initialTab: ProfileTab,
     onQuestionClick: (String) -> Unit,
     onOpenCollections: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -146,11 +147,11 @@ fun MeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val profileViewModel = uiState.user?.username?.takeIf { it.isNotBlank() }?.let { username ->
         androidx.lifecycle.viewmodel.compose.viewModel<ProfileViewModel>(
-            key = "me-profile-$username",
+            key = "me-profile-$username-${initialTab.routeValue}",
             factory = appViewModelFactory {
                 ProfileViewModel(
                     username = username,
-                    initialTab = ProfileTab.OVERVIEW,
+                    initialTab = initialTab,
                     userRepository = userRepository,
                     sessionRepository = sessionRepository,
                 )

@@ -50,6 +50,7 @@ import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.MarkdownText
+import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -531,27 +532,11 @@ private fun ProfileTabRow(
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(tabs, key = { it.routeValue }) { tab ->
-            Surface(
-                color = if (tab == selectedTab) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-                shape = MaterialTheme.shapes.small,
-                shadowElevation = if (tab == selectedTab) 2.dp else 0.dp,
-                modifier = Modifier.clickable { onTabSelected(tab) },
-            ) {
-                Text(
-                    text = tab.label,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    color = if (tab == selectedTab) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
+            SectionSwitch(
+                text = tab.label,
+                selected = tab == selectedTab,
+                onClick = { onTabSelected(tab) },
+            )
         }
     }
 }

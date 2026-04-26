@@ -66,6 +66,18 @@ class ConfigRepository(private val storage: MMKV) {
     }
 }
 
+class UiPreferenceRepository(private val storage: MMKV) {
+    fun hasSeenSearchHints(): Boolean = storage.decodeBool(KEY_SEEN_SEARCH_HINTS, false)
+
+    fun markSearchHintsSeen() {
+        storage.encode(KEY_SEEN_SEARCH_HINTS, true)
+    }
+
+    companion object {
+        private const val KEY_SEEN_SEARCH_HINTS = "seen_search_hints"
+    }
+}
+
 class SessionRepository(
     private val storage: MMKV,
     private val gson: Gson,
@@ -410,7 +422,7 @@ class UserRepository(
         } else {
             apiClientProvider.api().getUserBadgeAwards(username)
         }
-        response.requireData().map { it.toModel() }
+        response.requireData().list.orEmpty().map { it.toModel() }
     }
 
     suspend fun logout() {
