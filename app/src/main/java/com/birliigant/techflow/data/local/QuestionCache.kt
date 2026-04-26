@@ -24,6 +24,7 @@ data class CachedQuestionEntity(
     val viewCount: Int,
     val createdAt: String,
     val tags: List<String>,
+    val accepted: Boolean,
     val syncedAt: Long,
 )
 
@@ -57,7 +58,7 @@ class RoomConverters {
 
 @Database(
     entities = [CachedQuestionEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(RoomConverters::class)

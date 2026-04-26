@@ -201,12 +201,13 @@ class QuestionRepository(
                     authorUsername = it.authorUsername,
                     authorAvatar = it.authorAvatar,
                     answerCount = it.answerCount,
-                    voteCount = it.voteCount,
-                    viewCount = it.viewCount,
-                    createdAt = it.createdAt,
-                    tags = it.tags,
-                )
-            }
+                voteCount = it.voteCount,
+                viewCount = it.viewCount,
+                createdAt = it.createdAt,
+                tags = it.tags,
+                accepted = it.accepted,
+            )
+    }
     }
 
     suspend fun getQuestionPage(
@@ -261,6 +262,7 @@ class QuestionRepository(
                 viewCount = item.viewCount,
                 createdAt = item.createdAt,
                 tags = item.tags.map(TagItem::name),
+                accepted = item.accepted,
                 syncedAt = System.currentTimeMillis(),
             )
         }
@@ -461,6 +463,7 @@ private fun CachedQuestionEntity.toModel(): QuestionSummary {
         viewCount = viewCount,
         createdAt = createdAt,
         tags = tags.map { TagItem(name = it) },
+        accepted = accepted,
     )
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.HorizontalDivider
@@ -40,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.lifecycle.ViewModel
@@ -500,11 +502,18 @@ private fun QuestionCard(
                 )
             }
         }
-        Text(
-            text = "${question.voteCount} 个点赞  ·  ${question.answerCount} 个回答  ·  ${question.viewCount} 次浏览",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            StatText("${question.voteCount} 个点赞")
+            AcceptedAnswerStat(
+                answerCount = question.answerCount,
+                accepted = question.accepted,
+            )
+            StatText("${question.viewCount} 次浏览")
+        }
         if (question.excerpt.isNotBlank()) {
             Text(
                 text = question.excerpt,
@@ -525,6 +534,42 @@ private fun QuestionCard(
         HorizontalDivider(
             modifier = Modifier.padding(top = 16.dp),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+        )
+    }
+}
+
+@Composable
+private fun StatText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun AcceptedAnswerStat(
+    answerCount: Int,
+    accepted: Boolean,
+) {
+    val acceptedColor = Color(0xFF1E8E5A)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (accepted) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "已有最佳回答",
+                tint = acceptedColor,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Text(
+            text = "${answerCount} 个回答",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (accepted) acceptedColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (accepted) FontWeight.SemiBold else FontWeight.Normal,
         )
     }
 }

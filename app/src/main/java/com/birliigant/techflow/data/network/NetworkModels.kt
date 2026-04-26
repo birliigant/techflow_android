@@ -358,6 +358,7 @@ fun QuestionDto.toSummary(): QuestionSummary {
         viewCount = viewCount ?: 0,
         createdAt = createdAt.orEmpty(),
         tags = tags.orEmpty().map { it.toModel() },
+        accepted = accepted.toBooleanCompat(),
     )
 }
 

@@ -122,6 +122,7 @@ data class QuestionSummary(
     val viewCount: Int,
     val createdAt: String,
     val tags: List<TagItem>,
+    val accepted: Boolean = false,
 )
 
 data class SearchPostItem(
