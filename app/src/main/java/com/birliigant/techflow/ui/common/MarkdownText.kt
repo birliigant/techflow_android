@@ -4,18 +4,21 @@ import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
@@ -38,8 +41,16 @@ private const val UrlAnnotation = "url"
 private sealed interface MarkdownBlock {
     data class Heading(val level: Int, val text: String) : MarkdownBlock
     data class Paragraph(val text: String) : MarkdownBlock
-    data class Bullet(val text: String) : MarkdownBlock
+    data class ListItem(
+        val marker: String,
+        val text: String,
+        val indentLevel: Int = 0,
+    ) : MarkdownBlock
+    data class Quote(val text: String) : MarkdownBlock
+    data class CodeBlock(val code: String) : MarkdownBlock
     data class Image(val alt: String, val url: String) : MarkdownBlock
+    data class Table(val rows: List<List<String>>) : MarkdownBlock
+    data object HorizontalRule : MarkdownBlock
 }
 
 @Composable
@@ -80,12 +91,14 @@ fun MarkdownText(
                     style = style,
                 )
 
-                is MarkdownBlock.Bullet -> Row(
-                    modifier = Modifier.fillMaxWidth(),
+                is MarkdownBlock.ListItem -> Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = (block.indentLevel * 18).dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MarkdownClickableText(
-                        text = "•",
+                        text = block.marker,
                         style = style.copy(fontWeight = FontWeight.Bold),
                     )
                     MarkdownClickableText(
@@ -95,10 +108,88 @@ fun MarkdownText(
                     )
                 }
 
+                is MarkdownBlock.Quote -> Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text(
+                        text = block.text,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        style = style.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = resolvedTextColor(style),
+                        ),
+                    )
+                }
+
+                is MarkdownBlock.CodeBlock -> Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(
+                        text = block.code,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        style = style.copy(
+                            fontFamily = FontFamily.Monospace,
+                            color = resolvedTextColor(style),
+                        ),
+                    )
+                }
+
                 is MarkdownBlock.Image -> MarkdownImage(
                     url = block.url,
                     alt = block.alt,
                 )
+
+                is MarkdownBlock.Table -> MarkdownTable(
+                    rows = block.rows,
+                    style = style,
+                )
+
+                MarkdownBlock.HorizontalRule -> Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkdownTable(
+    rows: List<List<String>>,
+    style: TextStyle,
+) {
+    if (rows.isEmpty()) return
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            rows.forEachIndexed { rowIndex, row ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { cell ->
+                        Text(
+                            text = cell,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            style = style.copy(
+                                fontWeight = if (rowIndex == 0) FontWeight.SemiBold else FontWeight.Normal,
+                                color = resolvedTextColor(style),
+                            ),
+                        )
+                    }
+                }
+                if (rowIndex != rows.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                }
             }
         }
     }
@@ -213,7 +304,7 @@ private fun MarkdownClickableText(
     ClickableText(
         modifier = modifier,
         text = annotated,
-        style = style.copy(color = MaterialTheme.colorScheme.onSurface),
+        style = style.copy(color = resolvedTextColor(style)),
         onClick = { offset ->
             annotated
                 .getStringAnnotations(UrlAnnotation, offset, offset)
@@ -233,6 +324,8 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
     val paragraph = mutableListOf<String>()
     val imageRegex = Regex("^!\\[(.*?)]\\((.*?)\\)$")
     val imageLinkRegex = Regex("^\\[(.*?)]\\((.*?)\\)$")
+    val lines = text.replace("\r\n", "\n").split('\n')
+    var index = 0
 
     fun flushParagraph() {
         if (paragraph.isNotEmpty()) {
@@ -241,55 +334,99 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
         }
     }
 
-    text.replace("\r\n", "\n")
-        .split('\n')
-        .forEach { rawLine ->
-            val line = rawLine.trimEnd()
-            when {
-                line.isBlank() -> flushParagraph()
-                imageRegex.matches(line.trim()) -> {
+    while (index < lines.size) {
+        val rawLine = lines[index]
+        val line = rawLine.trimEnd()
+        val trimmed = line.trim()
+        when {
+            trimmed.isBlank() -> {
+                flushParagraph()
+                index += 1
+            }
+
+            trimmed.startsWith("```") -> {
+                flushParagraph()
+                val codeLines = mutableListOf<String>()
+                index += 1
+                while (index < lines.size && !lines[index].trim().startsWith("```")) {
+                    codeLines += lines[index]
+                    index += 1
+                }
+                blocks += MarkdownBlock.CodeBlock(codeLines.joinToString("\n").trimEnd())
+                if (index < lines.size) index += 1
+            }
+
+            isHorizontalRule(trimmed) -> {
+                flushParagraph()
+                blocks += MarkdownBlock.HorizontalRule
+                index += 1
+            }
+
+            trimmed.startsWith("|") -> {
+                flushParagraph()
+                val tableLines = mutableListOf<String>()
+                while (index < lines.size && lines[index].trim().startsWith("|")) {
+                    tableLines += lines[index].trim()
+                    index += 1
+                }
+                parseMarkdownTable(tableLines)?.let { blocks += it }
+            }
+
+            trimmed.startsWith(">") -> {
+                flushParagraph()
+                val quoteLines = mutableListOf<String>()
+                while (index < lines.size && lines[index].trim().startsWith(">")) {
+                    quoteLines += lines[index].trim().removePrefix(">").trim()
+                    index += 1
+                }
+                blocks += MarkdownBlock.Quote(quoteLines.joinToString("\n").trim())
+            }
+
+            imageRegex.matches(trimmed) -> {
+                flushParagraph()
+                val match = imageRegex.matchEntire(trimmed) ?: break
+                blocks += MarkdownBlock.Image(
+                    alt = match.groupValues[1],
+                    url = match.groupValues[2],
+                )
+                index += 1
+            }
+
+            imageLinkRegex.matches(trimmed) -> {
+                val match = imageLinkRegex.matchEntire(trimmed) ?: break
+                val alt = match.groupValues[1]
+                val url = match.groupValues[2]
+                if (looksLikeImageUrl(url) || looksLikeImageUrl(alt)) {
                     flushParagraph()
-                    val match = imageRegex.matchEntire(line.trim()) ?: return@forEach
                     blocks += MarkdownBlock.Image(
-                        alt = match.groupValues[1],
-                        url = match.groupValues[2],
+                        alt = alt,
+                        url = url,
                     )
+                } else {
+                    paragraph += trimmed
                 }
+                index += 1
+            }
 
-                imageLinkRegex.matches(line.trim()) -> {
-                    val match = imageLinkRegex.matchEntire(line.trim()) ?: return@forEach
-                    val alt = match.groupValues[1]
-                    val url = match.groupValues[2]
-                    if (looksLikeImageUrl(url) || looksLikeImageUrl(alt)) {
-                        flushParagraph()
-                        blocks += MarkdownBlock.Image(
-                            alt = alt,
-                            url = url,
-                        )
-                    } else {
-                        paragraph += line.trim()
-                    }
-                }
+            trimmed.startsWith("#") -> {
+                flushParagraph()
+                val level = trimmed.takeWhile { it == '#' }.length.coerceIn(1, 3)
+                blocks += MarkdownBlock.Heading(level, trimmed.drop(level).trim())
+                index += 1
+            }
 
-                line.startsWith("#") -> {
-                    flushParagraph()
-                    val level = line.takeWhile { it == '#' }.length.coerceIn(1, 3)
-                    blocks += MarkdownBlock.Heading(level, line.drop(level).trim())
-                }
+            isListLine(rawLine) -> {
+                flushParagraph()
+                parseListItem(rawLine)?.let { blocks += it }
+                index += 1
+            }
 
-                line.startsWith("- ") || line.startsWith("* ") -> {
-                    flushParagraph()
-                    blocks += MarkdownBlock.Bullet(line.drop(2).trim())
-                }
-
-                Regex("^\\d+\\.\\s+").containsMatchIn(line) -> {
-                    flushParagraph()
-                    blocks += MarkdownBlock.Bullet(line.replaceFirst(Regex("^\\d+\\.\\s+"), "").trim())
-                }
-
-                else -> paragraph += line.trim()
+            else -> {
+                paragraph += trimmed
+                index += 1
             }
         }
+    }
 
     flushParagraph()
     return blocks
@@ -339,6 +476,18 @@ private fun buildMarkdownAnnotatedString(
                 }
             }
 
+            if (text[index] == '_' || text[index] == '*') {
+                val marker = text[index]
+                val closeIndex = text.indexOf(marker, startIndex = index + 1)
+                if (closeIndex > index + 1) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Medium)) {
+                        append(text.substring(index + 1, closeIndex))
+                    }
+                    index = closeIndex + 1
+                    continue
+                }
+            }
+
             if (text[index] == '`') {
                 val closeIndex = text.indexOf('`', startIndex = index + 1)
                 if (closeIndex > index + 1) {
@@ -353,6 +502,66 @@ private fun buildMarkdownAnnotatedString(
             append(text[index])
             index += 1
         }
+    }
+}
+
+private fun parseListItem(rawLine: String): MarkdownBlock.ListItem? {
+    val indentSpaces = rawLine.takeWhile { it == ' ' || it == '\t' }
+        .fold(0) { acc, c -> acc + if (c == '\t') 4 else 1 }
+    val indentLevel = indentSpaces / 4
+    val trimmed = rawLine.trimStart()
+    val orderedMatch = Regex("^(\\d+)\\.\\s+(.*)$").matchEntire(trimmed)
+    if (orderedMatch != null) {
+        return MarkdownBlock.ListItem(
+            marker = "${orderedMatch.groupValues[1]}.",
+            text = orderedMatch.groupValues[2].trim(),
+            indentLevel = indentLevel,
+        )
+    }
+    val unorderedMatch = Regex("^[-*+]\\s+(.*)$").matchEntire(trimmed) ?: return null
+    return MarkdownBlock.ListItem(
+        marker = "•",
+        text = unorderedMatch.groupValues[1].trim(),
+        indentLevel = indentLevel,
+    )
+}
+
+private fun isListLine(rawLine: String): Boolean {
+    val trimmed = rawLine.trimStart()
+    return Regex("^[-*+]\\s+").containsMatchIn(trimmed) ||
+        Regex("^\\d+\\.\\s+").containsMatchIn(trimmed)
+}
+
+private fun isHorizontalRule(line: String): Boolean {
+    return Regex("^([-*_])(?:\\s*\\1){2,}\\s*$").matches(line)
+}
+
+private fun parseMarkdownTable(lines: List<String>): MarkdownBlock.Table? {
+    if (lines.isEmpty()) return null
+    val rows = lines.map { line ->
+        line.removePrefix("|")
+            .removeSuffix("|")
+            .split("|")
+            .map { it.trim() }
+    }.filter { row -> row.any { it.isNotBlank() } }
+    if (rows.isEmpty()) return null
+
+    val filteredRows = if (rows.size > 1 && rows[1].all { cell ->
+            cell.isNotBlank() && cell.all { it == '-' || it == ':' }
+        }) {
+        listOf(rows.first()) + rows.drop(2)
+    } else {
+        rows
+    }
+    return MarkdownBlock.Table(filteredRows)
+}
+
+@Composable
+private fun resolvedTextColor(style: TextStyle): Color {
+    return if (style.color != Color.Unspecified) {
+        style.color
+    } else {
+        MaterialTheme.colorScheme.onSurface
     }
 }
 

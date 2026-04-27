@@ -251,7 +251,9 @@ app/src/main/java/com/birliigant/techflow
 - 支持创建问题
 - 支持填写标题、正文、标签、分区等信息
 - 支持更接近 Web 端的 Markdown 编辑器式输入区域
-- 支持常用格式工具栏与实时预览
+- 支持标题、加粗、斜体、代码块、超链接、引用、图片上传、表格、有序列表、无序列表、缩进、减少缩进、水平线等工具栏操作
+- 支持跳转到 `https://commonmark.org/help/` 查看 CommonMark 帮助
+- 支持基于正文输入的实时 Markdown 预览
 
 ### 5.9 缓存与兜底
 
@@ -409,8 +411,6 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ### 10.4 富文本编辑能力
 
-- Markdown 编辑器增强
-- 图片上传
 - 代码块高亮
 - 草稿自动保存
 - 本地未提交内容恢复

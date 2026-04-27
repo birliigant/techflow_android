@@ -158,12 +158,14 @@ data class AnswerDto(
 
 data class CommentDto(
     @SerializedName("comment_id") val commentId: String? = null,
+    @SerializedName("object_id") val objectId: String? = null,
     @SerializedName("original_text") val originalText: String? = null,
     @SerializedName("parsed_text") val parsedText: String? = null,
     val username: String? = null,
     @SerializedName("user_display_name") val userDisplayName: String? = null,
     @SerializedName("reply_username") val replyUsername: String? = null,
     @SerializedName("user_avatar") val userAvatar: String? = null,
+    @SerializedName("is_vote") val isVote: Boolean? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
 )
@@ -250,7 +252,7 @@ data class ChangeProfessionRequest(
 
 data class VoteRequest(
     @SerializedName("object_id") val objectId: String,
-    @SerializedName("is_cancel") val isCancel: Boolean? = null,
+    @SerializedName("is_cancel") val isCancel: Boolean = false,
 )
 
 data class VoteResponse(
@@ -497,10 +499,14 @@ fun AnswerDto.toModel(): AnswerItem {
 fun CommentDto.toModel(): CommentItem {
     return CommentItem(
         id = commentId.orEmpty(),
+        objectId = objectId.orEmpty(),
         content = originalText.orEmpty().ifBlank { parsedText.orEmpty() },
         authorName = userDisplayName.orEmpty().ifBlank { username.orEmpty() }.ifBlank { "访客" },
         authorUsername = username.orEmpty().ifBlank { userDisplayName.orEmpty() },
+        authorAvatar = userAvatar?.normalizeRemoteUrl(),
         createdAt = createdAt.orEmpty(),
+        voteCount = voteCount ?: 0,
+        voted = isVote == true,
         replyUsername = replyUsername,
     )
 }
@@ -689,6 +695,8 @@ fun String.normalizeRemoteUrl(): String {
     val raw = trim()
     return when {
         raw.isBlank() -> raw
+        raw.startsWith("http://image.kid1934.top/") -> "https://${raw.removePrefix("http://")}"
+        raw.startsWith("http://www.gravatar.com/") -> "https://${raw.removePrefix("http://")}"
         raw.startsWith("http://") || raw.startsWith("https://") -> raw
         raw.startsWith("//") -> "https:$raw"
         raw.startsWith("/") -> "${com.birliigant.techflow.core.model.AppDefaults.defaultBaseUrl.removeSuffix("/")}$raw"

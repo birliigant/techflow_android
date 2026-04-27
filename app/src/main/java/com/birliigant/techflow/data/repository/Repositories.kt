@@ -46,6 +46,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class ConfigRepository(private val storage: MMKV) {
     init {
@@ -263,6 +267,20 @@ class QuestionRepository(
         payload.extractString("id", "question_id", "questionId").orEmpty()
     }
 
+    suspend fun uploadPostImage(
+        fileName: String,
+        bytes: ByteArray,
+        mimeType: String,
+    ): Result<String> = runCatching {
+        val sourceBody = "post".toRequestBody("text/plain".toMediaType())
+        val fileBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+        val filePart = MultipartBody.Part.createFormData("file", fileName, fileBody)
+        apiClientProvider.api()
+            .uploadFile(source = sourceBody, file = filePart)
+            .requireData()
+            .normalizeRemoteUrl()
+    }
+
     suspend fun getCommentsForObject(
         objectId: String,
         page: Int = 1,
@@ -283,7 +301,7 @@ class QuestionRepository(
         val response = apiClientProvider.api().voteUp(
             VoteRequest(
                 objectId = objectId,
-                isCancel = cancel.takeIf { it },
+                isCancel = cancel,
             ),
         ).requireData()
         val votes = response.votes ?: response.upVotes ?: 0
@@ -306,12 +324,14 @@ class QuestionRepository(
         objectId: String,
         content: String,
         replyCommentId: String? = null,
+        mentionUsernameList: List<String>? = null,
     ): Result<com.birliigant.techflow.core.model.CommentItem> = runCatching {
         apiClientProvider.api().addComment(
             AddCommentRequest(
                 objectId = objectId,
                 originalText = content,
                 replyCommentId = replyCommentId,
+                mentionUsernameList = mentionUsernameList,
             ),
         ).requireData().toModel()
     }

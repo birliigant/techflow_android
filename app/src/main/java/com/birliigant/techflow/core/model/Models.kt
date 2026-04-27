@@ -156,10 +156,14 @@ data class AnswerItem(
 
 data class CommentItem(
     val id: String,
+    val objectId: String,
     val content: String,
     val authorName: String,
     val authorUsername: String,
+    val authorAvatar: String? = null,
     val createdAt: String,
+    val voteCount: Int = 0,
+    val voted: Boolean = false,
     val replyUsername: String? = null,
 )
 

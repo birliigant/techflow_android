@@ -6,14 +6,18 @@ import com.birliigant.techflow.data.repository.SessionRepository
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.PUT
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
@@ -81,6 +85,13 @@ interface TechFlowApi {
 
     @POST("answer/api/v1/user/register/email")
     suspend fun registerWithEmail(@Body request: EmailRegisterRequest): ApiEnvelope<JsonObject?>
+
+    @Multipart
+    @POST("answer/api/v1/file")
+    suspend fun uploadFile(
+        @Part("source") source: RequestBody,
+        @Part file: MultipartBody.Part,
+    ): ApiEnvelope<String>
 
     @GET("answer/api/v1/user/info")
     suspend fun getCurrentUser(): ApiEnvelope<UserDto?>

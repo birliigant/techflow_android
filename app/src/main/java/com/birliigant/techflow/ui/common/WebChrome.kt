@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -29,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 
 @Composable
 fun TechFlowTopBar(
@@ -242,9 +245,13 @@ fun AvatarImage(
     fallbackText: String,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     if (!imageUrl.isNullOrBlank()) {
         SubcomposeAsyncImage(
-            model = imageUrl,
+            model = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .crossfade(true)
+                .build(),
             contentDescription = fallbackText,
             modifier = modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -280,11 +287,11 @@ private fun AvatarFallback(
         color = Color(0xFFE7ECF8),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = fallbackText.take(1).uppercase(),
-                color = Color(0xFF2A3D73),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
+            Icon(
+                imageVector = Icons.Outlined.Person,
+                contentDescription = fallbackText,
+                tint = Color(0xFF7B8498),
+                modifier = Modifier.size(28.dp),
             )
         }
     }

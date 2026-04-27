@@ -15,11 +15,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.ModeComment
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -34,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,6 +81,13 @@ private enum class AnswerSort(val label: String) {
 private data class ReportTarget(
     val objectId: String,
     val label: String,
+)
+
+data class CommentReplyTarget(
+    val objectId: String,
+    val replyCommentId: String,
+    val replyUsername: String,
+    val answerId: String? = null,
 )
 
 class QuestionDetailViewModel(
@@ -153,8 +168,8 @@ class QuestionDetailViewModel(
         }
     }
 
-    fun loadAnswerComments(answerId: String) {
-        if (_uiState.value.answerComments.containsKey(answerId)) return
+    fun loadAnswerComments(answerId: String, force: Boolean = false) {
+        if (!force && _uiState.value.answerComments.containsKey(answerId)) return
         viewModelScope.launch {
             val result = questionRepository.getCommentsForObject(answerId)
             if (result.isSuccess) {
@@ -184,13 +199,48 @@ class QuestionDetailViewModel(
         viewModelScope.launch {
             val result = questionRepository.addComment(objectId = answerId, content = content)
             if (result.isSuccess) {
-                val comments = questionRepository.getCommentsForObject(answerId).getOrDefault(emptyList())
-                _uiState.update { state ->
-                    state.copy(
-                        answerComments = state.answerComments + (answerId to comments),
-                        actionMessage = "楼中楼评论已发布",
-                    )
+                loadAnswerComments(answerId, force = true)
+                _uiState.update { it.copy(actionMessage = "楼中楼评论已发布") }
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
+            }
+        }
+    }
+
+    fun submitCommentReply(target: CommentReplyTarget, content: String) {
+        viewModelScope.launch {
+            val result = questionRepository.addComment(
+                objectId = target.objectId,
+                content = content,
+                replyCommentId = target.replyCommentId,
+                mentionUsernameList = listOf(target.replyUsername),
+            )
+            if (result.isSuccess) {
+                if (target.answerId != null) {
+                    loadAnswerComments(target.answerId, force = true)
+                } else {
+                    refresh(silent = true)
                 }
+                _uiState.update { it.copy(actionMessage = "回复已发布") }
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
+            }
+        }
+    }
+
+    fun toggleCommentVote(comment: CommentItem, answerId: String? = null) {
+        viewModelScope.launch {
+            val result = questionRepository.toggleVoteUp(
+                objectId = comment.id,
+                cancel = comment.voted,
+            )
+            if (result.isSuccess) {
+                if (answerId != null) {
+                    loadAnswerComments(answerId, force = true)
+                } else {
+                    refresh(silent = true)
+                }
+                _uiState.update { it.copy(actionMessage = if (comment.voted) "已取消评论点赞" else "评论点赞成功") }
             } else {
                 _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
             }
@@ -232,6 +282,7 @@ fun QuestionDetailScreen(
     var answerSort by remember { mutableStateOf(AnswerSort.SCORE) }
     var questionCommentDialog by remember { mutableStateOf(false) }
     var answerCommentTarget by remember { mutableStateOf<AnswerItem?>(null) }
+    var commentReplyTarget by remember { mutableStateOf<CommentReplyTarget?>(null) }
     var answerComposerDialog by remember { mutableStateOf(false) }
     var reportTarget by remember { mutableStateOf<ReportTarget?>(null) }
 
@@ -349,6 +400,25 @@ fun QuestionDetailScreen(
                                 reportTarget = ReportTarget(answer.id, "回答")
                             },
                             onLoadComments = { viewModel.loadAnswerComments(answer.id) },
+                            onCommentVoteClick = { comment -> viewModel.toggleCommentVote(comment, answer.id) },
+                            onCommentReplyClick = { comment ->
+                                commentReplyTarget = CommentReplyTarget(
+                                    objectId = comment.objectId.ifBlank { answer.id },
+                                    replyCommentId = comment.id,
+                                    replyUsername = comment.authorUsername,
+                                    answerId = answer.id,
+                                )
+                            },
+                            onCommentShareClick = { comment ->
+                                shareText(
+                                    context = context,
+                                    title = detail.title,
+                                    body = "${detail.title}\n${detail.shareUrl()}#comment-${comment.id}",
+                                )
+                            },
+                            onCommentReportClick = { comment ->
+                                reportTarget = ReportTarget(comment.id, "评论")
+                            },
                             onOpenUserProfile = onOpenUserProfile,
                         )
                     }
@@ -363,6 +433,22 @@ fun QuestionDetailScreen(
                             comment = comment,
                             onAuthorClick = { onOpenUserProfile(comment.authorUsername) },
                             onReplyClick = { username -> onOpenUserProfile(username) },
+                            onVoteClick = { viewModel.toggleCommentVote(comment) },
+                            onCommentClick = {
+                                commentReplyTarget = CommentReplyTarget(
+                                    objectId = comment.objectId.ifBlank { detail.id },
+                                    replyCommentId = comment.id,
+                                    replyUsername = comment.authorUsername,
+                                )
+                            },
+                            onShareClick = {
+                                shareText(
+                                    context = context,
+                                    title = detail.title,
+                                    body = "${detail.title}\n${detail.shareUrl()}#comment-${comment.id}",
+                                )
+                            },
+                            onReportClick = { reportTarget = ReportTarget(comment.id, "评论") },
                         )
                     }
                 }
@@ -409,6 +495,18 @@ fun QuestionDetailScreen(
             onSubmit = {
                 viewModel.submitAnswerComment(answer.id, it)
                 answerCommentTarget = null
+            },
+        )
+    }
+
+    commentReplyTarget?.let { target ->
+        TextComposerDialog(
+            title = "回复 @${target.replyUsername}",
+            hint = "写下你的回复内容",
+            onDismiss = { commentReplyTarget = null },
+            onSubmit = {
+                viewModel.submitCommentReply(target, it)
+                commentReplyTarget = null
             },
         )
     }
@@ -523,6 +621,10 @@ private fun AnswerCard(
     onShareClick: () -> Unit,
     onReportClick: () -> Unit,
     onLoadComments: () -> Unit,
+    onCommentVoteClick: (CommentItem) -> Unit,
+    onCommentReplyClick: (CommentItem) -> Unit,
+    onCommentShareClick: (CommentItem) -> Unit,
+    onCommentReportClick: (CommentItem) -> Unit,
     onOpenUserProfile: (String) -> Unit,
 ) {
     ElevatedCard(
@@ -568,6 +670,10 @@ private fun AnswerCard(
                         InlineCommentCard(
                             comment = comment,
                             onAuthorClick = { onOpenUserProfile(comment.authorUsername) },
+                            onReplyClick = { onCommentReplyClick(comment) },
+                            onVoteClick = { onCommentVoteClick(comment) },
+                            onShareClick = { onCommentShareClick(comment) },
+                            onReportClick = { onCommentReportClick(comment) },
                         )
                     }
                 }
@@ -627,32 +733,35 @@ private fun InteractionBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SegmentedActionButton(
-            text = if (voted) "已赞 $voteCount" else "点赞 $voteCount",
+        IconActionButton(
+            icon = Icons.Outlined.ThumbUp,
+            text = voteCount.toString(),
             selected = voted,
             onClick = onVoteClick,
         )
         if (onCollectionClick != null) {
-            SegmentedActionButton(
-                text = if (collected) "已收藏 ${collectionCount ?: 0}" else "收藏 ${collectionCount ?: 0}",
+            IconActionButton(
+                icon = if (collected) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                text = (collectionCount ?: 0).toString(),
                 selected = collected,
                 onClick = onCollectionClick,
             )
         }
-        InlineTextAction(text = "评论", onClick = onCommentClick)
-        InlineTextAction(text = "分享", onClick = onShareClick)
-        InlineTextAction(text = "举报", onClick = onReportClick)
+        InlineIconAction(icon = Icons.Outlined.ModeComment, text = "评论", onClick = onCommentClick)
+        InlineIconAction(icon = Icons.Outlined.Share, text = "分享", onClick = onShareClick)
+        InlineIconAction(icon = Icons.Outlined.Flag, text = "举报", onClick = onReportClick)
     }
 }
 
 @Composable
-private fun SegmentedActionButton(
+private fun IconActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         color = if (selected) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         } else {
@@ -660,26 +769,49 @@ private fun SegmentedActionButton(
         },
         modifier = Modifier.clickable(onClick = onClick),
     ) {
-        Text(
-            text = text,
+        Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = text,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            )
+        }
     }
 }
 
 @Composable
-private fun InlineTextAction(
+private fun InlineIconAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
     onClick: () -> Unit,
 ) {
-    Text(
-        text = text,
+    Row(
         modifier = Modifier.clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.bodyMedium,
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }
 
 @Composable
@@ -687,6 +819,10 @@ private fun CommentCard(
     comment: CommentItem,
     onAuthorClick: () -> Unit,
     onReplyClick: (String) -> Unit,
+    onVoteClick: () -> Unit,
+    onCommentClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onReportClick: () -> Unit,
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -695,10 +831,7 @@ private fun CommentCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            MarkdownText(
-                content = comment.content,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            MarkdownText(content = comment.content, style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = comment.authorName,
@@ -714,6 +847,31 @@ private fun CommentCard(
                     )
                 }
             }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                InlineIconAction(
+                    icon = Icons.Outlined.ThumbUp,
+                    text = comment.voteCount.toString(),
+                    onClick = onVoteClick,
+                )
+                InlineIconAction(
+                    icon = Icons.AutoMirrored.Outlined.Reply,
+                    text = "回复",
+                    onClick = onCommentClick,
+                )
+                InlineIconAction(
+                    icon = Icons.Outlined.Share,
+                    text = "分享",
+                    onClick = onShareClick,
+                )
+                InlineIconAction(
+                    icon = Icons.Outlined.Flag,
+                    text = "举报",
+                    onClick = onReportClick,
+                )
+            }
             Text(
                 text = formatDisplayDate(comment.createdAt).ifBlank { "刚刚" },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -727,6 +885,10 @@ private fun CommentCard(
 private fun InlineCommentCard(
     comment: CommentItem,
     onAuthorClick: () -> Unit,
+    onReplyClick: () -> Unit,
+    onVoteClick: () -> Unit,
+    onShareClick: () -> Unit,
+    onReportClick: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
@@ -736,29 +898,66 @@ private fun InlineCommentCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = comment.content,
+            MarkdownText(
+                content = comment.content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    text = comment.authorName,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.clickable(onClick = onAuthorClick),
+                AvatarImage(
+                    imageUrl = comment.authorAvatar,
+                    fallbackText = comment.authorName,
+                    modifier = Modifier.size(32.dp),
                 )
-                Text(
-                    text = formatDisplayDate(comment.createdAt).ifBlank { "刚刚" },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = comment.authorName,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.clickable(onClick = onAuthorClick),
+                        )
+                        Text(
+                            text = formatDisplayDate(comment.createdAt).ifBlank { "刚刚" },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        InlineIconAction(
+                            icon = Icons.Outlined.ThumbUp,
+                            text = comment.voteCount.toString(),
+                            onClick = onVoteClick,
+                        )
+                        InlineIconAction(
+                            icon = Icons.AutoMirrored.Outlined.Reply,
+                            text = "回复",
+                            onClick = onReplyClick,
+                        )
+                        InlineIconAction(
+                            icon = Icons.Outlined.Share,
+                            text = "分享",
+                            onClick = onShareClick,
+                        )
+                        InlineIconAction(
+                            icon = Icons.Outlined.Flag,
+                            text = "举报",
+                            onClick = onReportClick,
+                        )
+                    }
+                }
             }
         }
     }
