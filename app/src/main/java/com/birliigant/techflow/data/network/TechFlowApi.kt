@@ -200,7 +200,7 @@ class ApiClientProvider(
                     .addInterceptor { chain ->
                         val builder = chain.request().newBuilder()
                         if (token.isNotBlank()) {
-                            builder.header("Authorization", "Bearer $token")
+                            builder.header("Authorization", token)
                         }
                         chain.proceed(builder.build())
                     }

@@ -143,6 +143,7 @@ ViewModel 与页面一一对应，负责：
 
 职责划分：
 
+- `OkHttp`：统一注入与 Web 端一致的 `Authorization: <token>` 请求头
 - `Room`：保存问题列表缓存，用于网络失败时兜底显示
 - `MMKV`：保存 access token、当前用户信息与轻量 UI 偏好状态
 
