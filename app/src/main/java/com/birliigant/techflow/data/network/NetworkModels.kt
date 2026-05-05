@@ -152,6 +152,7 @@ data class AnswerDto(
     @SerializedName("user_info") val userInfo: UserDto? = null,
     @SerializedName("vote_count") val voteCount: Int? = null,
     @SerializedName(value = "created_at", alternate = ["create_time"]) val createdAt: String? = null,
+    @SerializedName("answer_accepted") val answerAccepted: Boolean? = null,
     val accepted: JsonElement? = null,
     @SerializedName("vote_status") val voteStatus: String? = null,
 )
@@ -456,6 +457,14 @@ fun QuestionDto.toDetail(
     answers: List<AnswerItem>,
     comments: List<CommentItem>,
 ): QuestionDetail {
+    val acceptedId = acceptedAnswerId.orEmpty().trim()
+    val resolvedAnswers = if (acceptedId.isNotBlank() && acceptedId != "0") {
+        answers.map { answer ->
+            answer.copy(accepted = answer.id == acceptedId)
+        }
+    } else {
+        answers
+    }
     return QuestionDetail(
         id = id.orEmpty(),
         title = title.orEmpty(),
@@ -472,7 +481,7 @@ fun QuestionDto.toDetail(
         collected = collected == true,
         voteStatus = voteStatus.orEmpty(),
         tags = tags.orEmpty().map { it.toModel() },
-        answers = answers,
+        answers = resolvedAnswers,
         comments = comments,
     )
 }
@@ -491,7 +500,7 @@ fun AnswerDto.toModel(): AnswerItem {
         authorAvatar = userInfo?.avatar.toAvatarUrl(),
         voteCount = voteCount ?: 0,
         createdAt = createdAt.orEmpty(),
-        accepted = accepted.toBooleanCompat(),
+        accepted = answerAccepted == true,
         voteStatus = voteStatus.orEmpty(),
     )
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -121,16 +122,30 @@ class QuestionDetailViewModel(
         _uiState.update { it.copy(actionMessage = null) }
     }
 
+    fun dismissErrorMessage() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
     fun toggleQuestionVote() {
         val detail = _uiState.value.detail ?: return
+        val wasVoted = detail.voteStatus.isUpVoted()
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = detail.id,
-                cancel = detail.voteStatus.isUpVoted(),
+                cancel = wasVoted,
             )
             if (result.isSuccess) {
-                refresh(silent = true)
-                _uiState.update { it.copy(actionMessage = if (detail.voteStatus.isUpVoted()) "已取消点赞" else "点赞成功") }
+                val (votes, voteStatus) = result.getOrThrow()
+                _uiState.update {
+                    it.copy(
+                        detail = it.detail?.copy(
+                            voteCount = votes,
+                            voteStatus = voteStatus.ifBlank { if (wasVoted) "" else "up" },
+                        ),
+                        actionMessage = if (wasVoted) "已取消点赞" else "点赞成功",
+                        errorMessage = null,
+                    )
+                }
             } else {
                 _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
             }
@@ -154,14 +169,32 @@ class QuestionDetailViewModel(
     }
 
     fun toggleAnswerVote(answer: AnswerItem) {
+        val wasVoted = answer.voteStatus.isUpVoted()
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = answer.id,
-                cancel = answer.voteStatus.isUpVoted(),
+                cancel = wasVoted,
             )
             if (result.isSuccess) {
-                refresh(silent = true)
-                _uiState.update { it.copy(actionMessage = if (answer.voteStatus.isUpVoted()) "已取消回答点赞" else "已点赞回答") }
+                val (votes, voteStatus) = result.getOrThrow()
+                _uiState.update { state ->
+                    state.copy(
+                        detail = state.detail?.copy(
+                            answers = state.detail.answers.map { item ->
+                                if (item.id == answer.id) {
+                                    item.copy(
+                                        voteCount = votes,
+                                        voteStatus = voteStatus.ifBlank { if (wasVoted) "" else "up" },
+                                    )
+                                } else {
+                                    item
+                                }
+                            },
+                        ),
+                        actionMessage = if (wasVoted) "已取消回答点赞" else "已点赞回答",
+                        errorMessage = null,
+                    )
+                }
             } else {
                 _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
             }
@@ -229,18 +262,45 @@ class QuestionDetailViewModel(
     }
 
     fun toggleCommentVote(comment: CommentItem, answerId: String? = null) {
+        val wasVoted = comment.voted
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = comment.id,
-                cancel = comment.voted,
+                cancel = wasVoted,
             )
             if (result.isSuccess) {
-                if (answerId != null) {
-                    loadAnswerComments(answerId, force = true)
-                } else {
-                    refresh(silent = true)
+                val (votes, _) = result.getOrThrow()
+                _uiState.update { state ->
+                    val updatedAnswerComments = if (answerId != null) {
+                        state.answerComments + (answerId to state.answerComments[answerId].orEmpty().map { item ->
+                            if (item.id == comment.id) {
+                                item.copy(voteCount = votes, voted = !wasVoted)
+                            } else {
+                                item
+                            }
+                        })
+                    } else {
+                        state.answerComments
+                    }
+                    state.copy(
+                        detail = state.detail?.copy(
+                            comments = if (answerId == null) {
+                                state.detail.comments.map { item ->
+                                    if (item.id == comment.id) {
+                                        item.copy(voteCount = votes, voted = !wasVoted)
+                                    } else {
+                                        item
+                                    }
+                                }
+                            } else {
+                                state.detail.comments
+                            },
+                        ),
+                        answerComments = updatedAnswerComments,
+                        actionMessage = if (wasVoted) "已取消评论点赞" else "评论点赞成功",
+                        errorMessage = null,
+                    )
                 }
-                _uiState.update { it.copy(actionMessage = if (comment.voted) "已取消评论点赞" else "评论点赞成功") }
             } else {
                 _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
             }
@@ -324,6 +384,25 @@ fun QuestionDetailScreen(
                             text = message,
                             modifier = Modifier.padding(16.dp),
                             color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+
+            uiState.errorMessage?.let { message ->
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.dismissErrorMessage() },
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
@@ -682,9 +761,10 @@ private fun AnswerCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -693,16 +773,23 @@ private fun AnswerCard(
                         fallbackText = answer.authorName,
                         modifier = Modifier.size(38.dp),
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         Text(
                             text = answer.authorName,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable(onClick = onAuthorClick),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "@${answer.authorUsername}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -710,6 +797,8 @@ private fun AnswerCard(
                     text = "回答于 ${formatDisplayDate(answer.createdAt).ifBlank { "刚刚" }}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -837,6 +926,8 @@ private fun CommentCard(
                     text = comment.authorName,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable(onClick = onAuthorClick),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 comment.replyUsername?.takeIf { it.isNotBlank() }?.let { reply ->
                     Text("回复", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -844,6 +935,8 @@ private fun CommentCard(
                         text = "@$reply",
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable { onReplyClick(reply) },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -925,6 +1018,8 @@ private fun InlineCommentCard(
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.clickable(onClick = onAuthorClick),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = formatDisplayDate(comment.createdAt).ifBlank { "刚刚" },

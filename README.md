@@ -209,6 +209,8 @@ app/src/main/java/com/birliigant/techflow
 - 展示评论列表
 - 支持帖子点赞、收藏、评论、分享、举报
 - 支持回答点赞、楼中楼评论、分享、举报
+- 点赞后会直接刷新当前卡片的本地状态，失败时会在详情页展示明确错误提示
+- 回答作者、评论作者过长时会自动省略，避免压缩日期与操作区布局
 - 支持点击回答者、评论者、被回复用户进入对应主页
 
 ### 5.3 登录与会话
@@ -283,6 +285,7 @@ app/src/main/java/com/birliigant/techflow
 - 正文字段可能落在 `content` / `parsed_text` / `html`
 - `accepted` 可能是布尔、字符串或数值
 - 首页列表里“是否有最佳回答”既兼容 `accepted`，也兼容 `accepted_answer_id`
+- 回答列表里的“是否已采纳”以问题详情返回的 `accepted_answer_id` 为准，避免直接误用回答流里的不稳定 `accepted`
 - 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
 - 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
 - 发帖请求里的 `tags` 已按 Swagger 要求发送为 `schema.TagItem` 对象数组，而不是纯字符串数组
@@ -377,7 +380,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 虽然项目已经具备较完整的主流程，但仍有一些边界需要明确：
 
-- 头像上传目前尚未实现写接口接入
+- 发帖编辑器已接入图片上传，用户头像上传仍未开放为完整的资料编辑能力
 - 通知系统页面和消息中心还未完整落地
 - 分区页、通知页、更多个人中心能力仍可进一步丰富
 
