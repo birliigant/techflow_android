@@ -4,6 +4,8 @@
 
 本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md)、[docs/接口文档-详细版.md](docs/接口文档-详细版.md)、[docs/swagger.json](docs/swagger.json) 与 [docs/swagger.yaml](docs/swagger.yaml) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
 
+如果需要一份更偏“版本清单 / 技术归档”风格的说明，可以直接看 [docs/当前项目技术栈.md](docs/当前项目技术栈.md)。
+
 ## 1. 项目定位
 
 这个项目不是一个简单的“Web 包壳”，而是一个基于 Android 原生能力实现的移动端应用：
