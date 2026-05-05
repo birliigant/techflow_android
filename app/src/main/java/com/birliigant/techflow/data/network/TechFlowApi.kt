@@ -65,6 +65,9 @@ interface TechFlowApi {
         @Query("page_size") pageSize: Int,
     ): ApiEnvelope<PageEnvelope<CommentDto>>
 
+    @GET("answer/api/v1/permission")
+    suspend fun getPermission(@Query("action") action: String): ApiEnvelope<JsonObject?>
+
     @POST("answer/api/v1/vote/up")
     suspend fun voteUp(@Body request: VoteRequest): ApiEnvelope<VoteResponse>
 

@@ -364,6 +364,7 @@ fun TechFlowApp(appContainer: AppContainer) {
                             QuestionDetailViewModel(
                                 questionId = questionId,
                                 questionRepository = appContainer.questionRepository,
+                                sessionRepository = appContainer.sessionRepository,
                             )
                         },
                     ),

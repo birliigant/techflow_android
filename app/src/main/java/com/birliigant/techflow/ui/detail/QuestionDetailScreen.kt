@@ -55,6 +55,7 @@ import com.birliigant.techflow.core.model.formatDisplayDate
 import com.birliigant.techflow.core.model.isUpVoted
 import com.birliigant.techflow.core.model.shareUrl
 import com.birliigant.techflow.data.repository.QuestionRepository
+import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.ui.common.AvatarImage
 import com.birliigant.techflow.ui.common.MarkdownText
 import com.birliigant.techflow.ui.common.SectionSwitch
@@ -94,6 +95,7 @@ data class CommentReplyTarget(
 class QuestionDetailViewModel(
     private val questionId: String,
     private val questionRepository: QuestionRepository,
+    private val sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(QuestionDetailUiState())
     val uiState: StateFlow<QuestionDetailUiState> = _uiState.asStateFlow()
@@ -128,11 +130,16 @@ class QuestionDetailViewModel(
 
     fun toggleQuestionVote() {
         val detail = _uiState.value.detail ?: return
+        if (isCurrentUser(detail.authorUsername)) {
+            _uiState.update { it.copy(errorMessage = "不能给自己的问题点赞") }
+            return
+        }
         val wasVoted = detail.voteStatus.isUpVoted()
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = detail.id,
                 cancel = wasVoted,
+                permissionAction = "question.vote_up",
             )
             if (result.isSuccess) {
                 val (votes, voteStatus) = result.getOrThrow()
@@ -169,11 +176,16 @@ class QuestionDetailViewModel(
     }
 
     fun toggleAnswerVote(answer: AnswerItem) {
+        if (isCurrentUser(answer.authorUsername)) {
+            _uiState.update { it.copy(errorMessage = "不能给自己的回答点赞") }
+            return
+        }
         val wasVoted = answer.voteStatus.isUpVoted()
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = answer.id,
                 cancel = wasVoted,
+                permissionAction = "answer.vote_up",
             )
             if (result.isSuccess) {
                 val (votes, voteStatus) = result.getOrThrow()
@@ -262,11 +274,16 @@ class QuestionDetailViewModel(
     }
 
     fun toggleCommentVote(comment: CommentItem, answerId: String? = null) {
+        if (isCurrentUser(comment.authorUsername)) {
+            _uiState.update { it.copy(errorMessage = "不能给自己的评论点赞") }
+            return
+        }
         val wasVoted = comment.voted
         viewModelScope.launch {
             val result = questionRepository.toggleVoteUp(
                 objectId = comment.id,
                 cancel = wasVoted,
+                permissionAction = "comment.vote_up",
             )
             if (result.isSuccess) {
                 val (votes, _) = result.getOrThrow()
@@ -305,6 +322,11 @@ class QuestionDetailViewModel(
                 _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
             }
         }
+    }
+
+    private fun isCurrentUser(username: String): Boolean {
+        val currentUsername = sessionRepository.currentUser.value?.username.orEmpty()
+        return currentUsername.isNotBlank() && username == currentUsername
     }
 
     fun submitReport(objectId: String, content: String, label: String) {

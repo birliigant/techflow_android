@@ -50,6 +50,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
 
 class ConfigRepository(private val storage: MMKV) {
     init {
@@ -297,7 +298,11 @@ class QuestionRepository(
     suspend fun toggleVoteUp(
         objectId: String,
         cancel: Boolean,
+        permissionAction: String,
     ): Result<Pair<Int, String>> = runCatching {
+        if (!cancel) {
+            ensurePermission(permissionAction)
+        }
         val response = apiClientProvider.api().voteUp(
             VoteRequest(
                 objectId = objectId,
@@ -306,6 +311,15 @@ class QuestionRepository(
         ).requireData()
         val votes = response.votes ?: response.upVotes ?: 0
         votes to response.voteStatus.orEmpty()
+    }.recoverCatching { throwable ->
+        throw throwable.toApiMessageException("点赞失败，请稍后再试")
+    }
+
+    private suspend fun ensurePermission(action: String) {
+        val permission = apiClientProvider.api().getPermission(action).requireNullableData()
+        if (permission.isPermissionAllowed(action) == false) {
+            error(permission.permissionTip() ?: "当前账号暂无点赞权限")
+        }
     }
 
     suspend fun toggleCollection(
@@ -557,6 +571,50 @@ private fun <T> ApiEnvelope<T>.requireData(): T {
 private fun <T> ApiEnvelope<T?>.requireNullableData(): T? {
     require((code ?: 200) in 200..299) { msg ?: reason ?: "请求失败" }
     return data
+}
+
+private fun JsonObject?.isPermissionAllowed(action: String): Boolean? {
+    val source = this ?: return null
+    return source.booleanOrNull("has_permission")
+        ?: source.booleanOrNull(action)
+        ?: source.booleanOrNull("permission")
+        ?: source.booleanOrNull("allowed")
+}
+
+private fun JsonObject?.permissionTip(): String? {
+    val source = this ?: return null
+    return source.stringOrNull("no_permission_tip")
+        ?: source.stringOrNull("msg")
+        ?: source.stringOrNull("reason")
+}
+
+private fun JsonObject.stringOrNull(key: String): String? {
+    return runCatching {
+        get(key)?.takeIf { !it.isJsonNull }?.asString?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+}
+
+private fun JsonObject.booleanOrNull(key: String): Boolean? {
+    return runCatching {
+        get(key)?.takeIf { !it.isJsonNull }?.asBoolean
+    }.getOrNull()
+}
+
+private fun Throwable.toApiMessageException(fallback: String): Throwable {
+    if (this !is HttpException) return this
+    val raw = response()?.errorBody()?.string()
+    val parsedMessage = raw?.let { body ->
+        runCatching {
+            Gson().fromJson(body, JsonObject::class.java)
+                ?.let { it.stringOrNull("msg") ?: it.stringOrNull("reason") }
+        }.getOrNull()
+    }
+    val message = parsedMessage ?: if (code() == 403) {
+        "当前账号暂无点赞权限，或不能给自己的内容点赞"
+    } else {
+        fallback
+    }
+    return IllegalStateException(message, this)
 }
 
 private fun JsonObject?.extractString(vararg keys: String): String? {

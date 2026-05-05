@@ -144,6 +144,7 @@ ViewModel 与页面一一对应，负责：
 职责划分：
 
 - `OkHttp`：统一注入与 Web 端一致的 `Authorization: <token>` 请求头
+- `Permission API`：在点赞前按 `question.vote_up` / `answer.vote_up` / `comment.vote_up` 做权限预检
 - `Room`：保存问题列表缓存，用于网络失败时兜底显示
 - `MMKV`：保存 access token、当前用户信息与轻量 UI 偏好状态
 
@@ -210,6 +211,7 @@ app/src/main/java/com/birliigant/techflow
 - 展示评论列表
 - 支持帖子点赞、收藏、评论、分享、举报
 - 支持回答点赞、楼中楼评论、分享、举报
+- 点赞前会拦截给自己内容投票，并解析后端 403 错误体，优先展示权限不足等明确提示
 - 点赞后会直接刷新当前卡片的本地状态，失败时会在详情页展示明确错误提示
 - 回答作者、评论作者过长时会自动省略，避免压缩日期与操作区布局
 - 支持点击回答者、评论者、被回复用户进入对应主页
@@ -450,7 +452,8 @@ app/build/outputs/apk/debug/app-debug.apk
 - 接口文档入口：[docs/接口文档-入口.md](docs/接口文档-入口.md)
 - 接口文档详细版：[docs/接口文档-详细版.md](docs/接口文档-详细版.md)
 - Swagger 原始定义：[docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml)
-- 图标资源：[docs/img/logo.svg](docs/img/logo.svg)
+- 原始品牌 Logo：[docs/img/logo.svg](docs/img/logo.svg)
+- App 图标源文件：[docs/img/app-logo.svg](docs/img/app-logo.svg)，Android 启动图标已使用该图标语义替换旧的默认 Android 图标
 - 首页 / UI 参考图：`docs/img/` 目录下相关图片资源
 
 ## 13. 总结
