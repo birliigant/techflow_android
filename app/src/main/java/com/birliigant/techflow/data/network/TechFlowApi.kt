@@ -204,8 +204,8 @@ class ApiClientProvider(
             } else {
                 val client = OkHttpClient.Builder()
                     .connectTimeout(20, TimeUnit.SECONDS)
-                    .readTimeout(20, TimeUnit.SECONDS)
-                    .writeTimeout(20, TimeUnit.SECONDS)
+                    .readTimeout(45, TimeUnit.SECONDS)
+                    .writeTimeout(45, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
                         val builder = chain.request().newBuilder()
                         if (token.isNotBlank()) {

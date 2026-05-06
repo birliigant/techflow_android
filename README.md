@@ -262,6 +262,7 @@ app/src/main/java/com/birliigant/techflow
 - 支持创建问题
 - 支持填写标题、正文、标签、分区等信息
 - 发帖请求对齐 Web 端实际行为提交 `title/content/partition/tags`；细分类标签可选，不填时自动使用当前分区下的“其他”标签
+- 发帖提交会立即锁定按钮，避免快速连点造成重复提交；如果后端已创建但客户端读超时，会主动查询最新问题并按成功处理
 - 支持更接近 Web 端的 Markdown 编辑器式输入区域
 - 支持标题、加粗、斜体、代码块、超链接、引用、图片上传、表格、有序列表、无序列表、缩进、减少缩进、水平线等工具栏操作
 - 支持跳转到 `https://commonmark.org/help/` 查看 CommonMark 帮助
@@ -298,6 +299,7 @@ app/src/main/java/com/birliigant/techflow
 - 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
 - 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
 - 发帖请求里的 `tags` 已按 Swagger 要求发送为 `schema.TagItem` 对象数组，而不是纯字符串数组
+- 发帖接口的超时和 400 场景会做“最新问题”兜底确认，用于兼容后端已落库但客户端收到超时、重复提交或不稳定错误提示的情况
 
 ### 6.3 Swagger 与现网双基准
 

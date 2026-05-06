@@ -16,6 +16,8 @@ import com.birliigant.techflow.core.model.TagItem
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.core.model.UserProfileUpdate
 import com.birliigant.techflow.core.model.VoteActivity
+import com.birliigant.techflow.core.model.formatDisplayDate
+import com.birliigant.techflow.core.model.markdownPreview
 import com.birliigant.techflow.core.model.normalizeBaseUrl
 import com.birliigant.techflow.data.local.CachedQuestionEntity
 import com.birliigant.techflow.data.local.QuestionDao
@@ -53,6 +55,9 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
+import java.net.SocketTimeoutException
+import java.time.LocalDate
+import java.time.ZoneId
 
 class ConfigRepository(private val storage: MMKV) {
     init {
@@ -269,7 +274,50 @@ class QuestionRepository(
         val payload = response.requireNullableData()
         payload.extractString("id", "question_id", "questionId").orEmpty()
     }.recoverCatching { throwable ->
-        throw throwable.toApiMessageException("提交问题失败，请检查标题、正文和标签后再试")
+        val recoveredId = if (throwable.isUncertainCreateQuestionFailure()) {
+            findRecentlySubmittedQuestion(draft)
+        } else {
+            null
+        }
+        if (!recoveredId.isNullOrBlank()) {
+            recoveredId
+        } else {
+            throw throwable.toApiMessageException("提交问题失败，请检查标题、正文和标签后再试")
+        }
+    }
+
+    private suspend fun findRecentlySubmittedQuestion(draft: QuestionDraft): String? {
+        return runCatching {
+            val title = draft.title.trim()
+            val contentPreview = markdownPreview(draft.content, maxLength = 80)
+            val today = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString()
+            apiClientProvider.api()
+                .getQuestions(page = 1, pageSize = 10, order = "newest")
+                .requireData()
+                .list
+                .orEmpty()
+                .map { it.toSummary() }
+                .firstOrNull { question ->
+                    question.title.trim() == title &&
+                        formatDisplayDate(question.createdAt) == today &&
+                        question.matchesDraftContent(contentPreview)
+                }
+                ?.id
+        }.getOrNull()
+    }
+
+    private fun Throwable.isUncertainCreateQuestionFailure(): Boolean {
+        return this is SocketTimeoutException || (this as? HttpException)?.code() == 400
+    }
+
+    private fun QuestionSummary.matchesDraftContent(contentPreview: String): Boolean {
+        if (contentPreview.isBlank()) return true
+        val previewProbe = contentPreview.take(24)
+        val excerptProbe = excerpt.take(24)
+        return previewProbe.isBlank() ||
+            excerptProbe.isBlank() ||
+            excerpt.contains(previewProbe, ignoreCase = true) ||
+            contentPreview.contains(excerptProbe, ignoreCase = true)
     }
 
     suspend fun uploadPostImage(

@@ -70,6 +70,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 private data class AskPartition(
@@ -105,6 +106,7 @@ class AskViewModel(
     private val editorState = MutableStateFlow(AskUiState())
     private val submitEvents = MutableSharedFlow<Unit>()
     private val editorInsertEvents = MutableSharedFlow<String>()
+    private var submitJob: Job? = null
 
     val uiState: StateFlow<AskUiState> = combine(
         editorState,
@@ -168,6 +170,9 @@ class AskViewModel(
 
     fun submitQuestion() {
         val state = uiState.value
+        if (state.isSubmitting || submitJob?.isActive == true) {
+            return
+        }
         if (!state.isLoggedIn) {
             editorState.update { it.copy(message = "请先登录后再发布问题。") }
             return
@@ -178,8 +183,8 @@ class AskViewModel(
         }
         val tags = state.tagsInput.split(",", "，", " ").map { it.trim() }.filter { it.isNotBlank() }
 
-        viewModelScope.launch {
-            editorState.update { it.copy(isSubmitting = true, message = null) }
+        editorState.update { it.copy(isSubmitting = true, message = null) }
+        submitJob = viewModelScope.launch {
             val draft = QuestionDraft(
                 title = state.title.trim(),
                 content = state.content.trim(),
