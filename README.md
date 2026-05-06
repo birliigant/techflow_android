@@ -144,7 +144,7 @@ ViewModel 与页面一一对应，负责：
 职责划分：
 
 - `OkHttp`：统一注入与 Web 端一致的 `Authorization: <token>` 请求头
-- `Permission API`：在点赞前按 `question.vote_up` / `answer.vote_up` / `comment.vote_up` 做权限预检
+- `Permission API`：在点赞前按 `question.vote_up` / `answer.vote_up` / `comment.vote_up` 做权限预检，并兼容 Apache Answer 按 action 分组返回的权限对象
 - `Room`：保存问题列表缓存，用于网络失败时兜底显示
 - `MMKV`：保存 access token、当前用户信息与轻量 UI 偏好状态
 
@@ -211,7 +211,7 @@ app/src/main/java/com/birliigant/techflow
 - 展示评论列表
 - 支持帖子点赞、收藏、评论、分享、举报
 - 支持回答点赞、楼中楼评论、分享、举报
-- 点赞前会拦截给自己内容投票，并解析后端 403 错误体，优先展示权限不足等明确提示
+- 点赞前会拦截给自己内容投票，并解析权限预检与后端 403 错误体；当服务端要求声望门槛时，会展示中文提示而不是继续发送无效投票请求
 - 点赞后会直接刷新当前卡片的本地状态，失败时会在详情页展示明确错误提示
 - 回答作者、评论作者过长时会自动省略，避免压缩日期与操作区布局
 - 支持点击回答者、评论者、被回复用户进入对应主页

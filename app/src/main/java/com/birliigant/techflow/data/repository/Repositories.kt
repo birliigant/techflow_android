@@ -318,7 +318,7 @@ class QuestionRepository(
     private suspend fun ensurePermission(action: String) {
         val permission = apiClientProvider.api().getPermission(action).requireNullableData()
         if (permission.isPermissionAllowed(action) == false) {
-            error(permission.permissionTip() ?: "当前账号暂无点赞权限")
+            error(permission.permissionTip(action) ?: "当前账号暂无点赞权限")
         }
     }
 
@@ -575,17 +575,37 @@ private fun <T> ApiEnvelope<T?>.requireNullableData(): T? {
 
 private fun JsonObject?.isPermissionAllowed(action: String): Boolean? {
     val source = this ?: return null
-    return source.booleanOrNull("has_permission")
-        ?: source.booleanOrNull(action)
-        ?: source.booleanOrNull("permission")
-        ?: source.booleanOrNull("allowed")
+    source.booleanOrNull(action)?.let { return it }
+    return source.permissionPayloads(action).firstNotNullOfOrNull { payload ->
+        payload.booleanOrNull("has_permission")
+            ?: payload.booleanOrNull("permission")
+            ?: payload.booleanOrNull("allowed")
+    }
 }
 
-private fun JsonObject?.permissionTip(): String? {
+private fun JsonObject?.permissionTip(action: String? = null): String? {
     val source = this ?: return null
-    return source.stringOrNull("no_permission_tip")
-        ?: source.stringOrNull("msg")
-        ?: source.stringOrNull("reason")
+    return source.permissionPayloads(action).firstNotNullOfOrNull { payload ->
+        payload.stringOrNull("no_permission_tip")
+            ?: payload.stringOrNull("msg")
+            ?: payload.stringOrNull("reason")
+    }?.toUserFriendlyMessage()
+}
+
+private fun JsonObject.permissionPayloads(action: String?): List<JsonObject> {
+    val payloads = buildList {
+        action?.let { objectOrNull(it)?.let(::add) }
+        objectOrNull("permission")?.let(::add)
+        objectOrNull("data")?.let(::add)
+        add(this@permissionPayloads)
+    }
+    return payloads.distinct()
+}
+
+private fun JsonObject.objectOrNull(key: String): JsonObject? {
+    return runCatching {
+        get(key)?.takeIf { !it.isJsonNull && it.isJsonObject }?.asJsonObject
+    }.getOrNull()
 }
 
 private fun JsonObject.stringOrNull(key: String): String? {
@@ -609,12 +629,26 @@ private fun Throwable.toApiMessageException(fallback: String): Throwable {
                 ?.let { it.stringOrNull("msg") ?: it.stringOrNull("reason") }
         }.getOrNull()
     }
-    val message = parsedMessage ?: if (code() == 403) {
+    val message = parsedMessage?.toUserFriendlyMessage() ?: if (code() == 403) {
         "当前账号暂无点赞权限，或不能给自己的内容点赞"
     } else {
         fallback
     }
     return IllegalStateException(message, this)
+}
+
+private fun String.toUserFriendlyMessage(): String {
+    val reputation = Regex("You need at least (\\d+) reputation to do this\\.", RegexOption.IGNORE_CASE)
+        .find(this)
+        ?.groupValues
+        ?.getOrNull(1)
+    if (reputation != null) {
+        return "当前账号声望至少需要 $reputation 才能点赞"
+    }
+    if (contains("can't vote for your own", ignoreCase = true)) {
+        return "不能给自己的内容点赞"
+    }
+    return this
 }
 
 private fun JsonObject?.extractString(vararg keys: String): String? {
