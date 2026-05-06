@@ -270,21 +270,32 @@ class QuestionRepository(
         }
     }
 
-    suspend fun createQuestion(draft: QuestionDraft): Result<String> = runCatching {
+    suspend fun createQuestion(
+        draft: QuestionDraft,
+        onPendingConfirmation: suspend () -> Unit = {},
+    ): Result<String> = runCatching {
         val submittedAtMillis = System.currentTimeMillis()
         val response = apiClientProvider.api().createQuestion(draft.toRequest())
-        response.requireNullableData()
+        val questionId = response.requireNullableData()
             .extractString("id", "question_id", "questionId")
             .orEmpty()
-            .ifBlank { findRecentlySubmittedQuestion(draft, submittedAtMillis).orEmpty() }
+        questionId.ifBlank {
+            findRecentlySubmittedQuestion(draft, submittedAtMillis)
+                ?: throw IllegalStateException("发布结果未确认，请到首页查看。")
+        }
     }.recoverCatching { throwable ->
         val recoveredId = if (throwable.isUncertainCreateQuestionFailure()) {
+            if (throwable is SocketTimeoutException) {
+                onPendingConfirmation()
+            }
             findRecentlySubmittedQuestion(draft, System.currentTimeMillis())
         } else {
             null
         }
         if (!recoveredId.isNullOrBlank()) {
             recoveredId
+        } else if (throwable is SocketTimeoutException) {
+            throw IllegalStateException("问题可能已经发布，但暂时无法确认，请稍后在首页查看。", throwable)
         } else {
             throw throwable.toApiMessageException("提交问题失败，请检查标题、正文和标签后再试")
         }

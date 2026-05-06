@@ -5,6 +5,7 @@ package com.birliigant.techflow.ui.ask
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -24,11 +25,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -88,6 +92,32 @@ private val askPartitions = listOf(
     AskPartition("竞赛相关", "competition"),
 )
 
+private val partitionDefaultTags = mapOf(
+    "graduate" to listOf("其他", "考研", "保研", "调剂", "复试"),
+    "internship" to listOf("其他", "实习就业", "求职吐槽", "简历", "面试"),
+    "homework" to listOf("其他", "课程作业", "大作业", "校内作业"),
+    "code" to listOf("其他", "前端", "后端", "算法", "安全", "游戏"),
+    "deepseek" to listOf("其他", "热门时事", "哲学思考", "产品思维", "关于我们"),
+    "major" to listOf("其他", "工科相关", "专业相关"),
+    "competition" to listOf("其他", "谁给我报名的蓝桥杯", "算法竞赛", "安全竞赛", "开发竞赛"),
+)
+
+private fun recommendedTagsForPartition(partition: String): List<String> {
+    return partitionDefaultTags[partition].orEmpty().ifEmpty { listOf("其他") }
+}
+
+private fun parseTagInput(value: String): List<String> {
+    return value
+        .split(",", "，", " ")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinct()
+}
+
+private fun joinTags(tags: List<String>): String {
+    return tags.distinct().joinToString("，")
+}
+
 data class AskUiState(
     val title: String = "",
     val content: String = "",
@@ -95,6 +125,7 @@ data class AskUiState(
     val partition: String = askPartitions.first().value,
     val isLoggedIn: Boolean = false,
     val isSubmitting: Boolean = false,
+    val isConfirmingSubmission: Boolean = false,
     val isUploadingImage: Boolean = false,
     val message: String? = null,
 )
@@ -104,7 +135,7 @@ class AskViewModel(
     sessionRepository: SessionRepository,
 ) : ViewModel() {
     private val editorState = MutableStateFlow(AskUiState())
-    private val submitEvents = MutableSharedFlow<Unit>()
+    private val submitEvents = MutableSharedFlow<String>()
     private val editorInsertEvents = MutableSharedFlow<String>()
     private var submitJob: Job? = null
 
@@ -129,6 +160,32 @@ class AskViewModel(
     fun updateTags(value: String) = editorState.update { it.copy(tagsInput = value) }
 
     fun updatePartition(value: String) = editorState.update { it.copy(partition = value) }
+
+    fun toggleTag(tag: String) {
+        val normalizedTag = tag.trim()
+        if (normalizedTag.isBlank()) return
+        editorState.update { state ->
+            val current = parseTagInput(state.tagsInput)
+            val next = if (normalizedTag in current) {
+                current - normalizedTag
+            } else {
+                current + normalizedTag
+            }
+            state.copy(tagsInput = joinTags(next))
+        }
+    }
+
+    fun addCustomTag(slug: String, displayName: String) {
+        val normalized = displayName.trim().ifBlank { slug.trim() }
+        if (normalized.isBlank()) {
+            editorState.update { it.copy(message = "请先填写标签标识或显示名称。") }
+            return
+        }
+        editorState.update { state ->
+            val next = parseTagInput(state.tagsInput) + normalized
+            state.copy(tagsInput = joinTags(next), message = "已添加标签：$normalized")
+        }
+    }
 
     fun resetDraft() {
         editorState.value = AskUiState(isLoggedIn = uiState.value.isLoggedIn)
@@ -183,7 +240,7 @@ class AskViewModel(
         }
         val tags = state.tagsInput.split(",", "，", " ").map { it.trim() }.filter { it.isNotBlank() }
 
-        editorState.update { it.copy(isSubmitting = true, message = null) }
+        editorState.update { it.copy(isSubmitting = true, isConfirmingSubmission = false, message = null) }
         submitJob = viewModelScope.launch {
             val draft = QuestionDraft(
                 title = state.title.trim(),
@@ -191,14 +248,25 @@ class AskViewModel(
                 tags = tags,
                 partition = state.partition,
             )
-            val result = questionRepository.createQuestion(draft)
+            val result = questionRepository.createQuestion(
+                draft = draft,
+                onPendingConfirmation = {
+                    editorState.update {
+                        it.copy(
+                            isConfirmingSubmission = true,
+                            message = "问题可能已发布，正在确认。",
+                        )
+                    }
+                },
+            )
             if (result.isSuccess) {
                 editorState.value = AskUiState(message = "问题已提交。", isLoggedIn = true)
-                submitEvents.emit(Unit)
+                submitEvents.emit(result.getOrThrow())
             } else {
                 editorState.update {
                     it.copy(
                         isSubmitting = false,
+                        isConfirmingSubmission = false,
                         message = result.exceptionOrNull()?.message ?: "提交失败",
                     )
                 }
@@ -211,7 +279,7 @@ class AskViewModel(
 fun AskScreen(
     viewModel: AskViewModel,
     onGoProfile: () -> Unit,
-    onSubmitted: () -> Unit,
+    onSubmitted: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -221,6 +289,7 @@ fun AskScreen(
     var contentValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(uiState.content))
     }
+    var createTagDialogVisible by rememberSaveable { mutableStateOf(false) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -247,14 +316,14 @@ fun AskScreen(
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            snackbarHostState.showSnackbar(it)
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             viewModel.consumeMessage()
         }
     }
 
     LaunchedEffect(viewModel) {
-        viewModel.successEvents.collect {
-            onSubmitted()
+        viewModel.successEvents.collect { questionId ->
+            onSubmitted(questionId)
         }
     }
 
@@ -378,40 +447,47 @@ fun AskScreen(
 
             item {
                 EditorBlock(
-                    title = "为问题补充标签：",
+                    title = "选择更详细的分类，有助于快速让大家看到你的问题~(可选)",
                     body = {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = uiState.tagsInput,
-                                onValueChange = viewModel::updateTags,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("可选，多个标签用逗号分隔；不填时自动使用“其他”") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(14.dp),
-                            )
-                            if (uiState.tagsInput.isNotBlank()) {
+                        val selectedTags = parseTagInput(uiState.tagsInput)
+                        val recommendedTags = recommendedTagsForPartition(uiState.partition)
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                recommendedTags.forEach { tag ->
+                                    TagChoiceButton(
+                                        text = tag,
+                                        selected = tag in selectedTags,
+                                        onClick = { viewModel.toggleTag(tag) },
+                                    )
+                                }
+                                Button(
+                                    onClick = { createTagDialogVisible = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+                                ) {
+                                    Text("+", style = MaterialTheme.typography.titleLarge)
+                                }
+                            }
+                            if (selectedTags.isEmpty()) {
+                                Text(
+                                    text = "不选择时会自动使用当前分区下的“其他”标签。",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            } else {
                                 FlowRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    uiState.tagsInput
-                                        .split(",", "，", " ")
-                                        .map { it.trim() }
-                                        .filter { it.isNotBlank() }
-                                        .distinct()
-                                        .forEach { tag ->
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                                shape = RoundedCornerShape(999.dp),
-                                            ) {
-                                                Text(
-                                                    text = tag,
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                )
-                                            }
-                                        }
+                                    selectedTags.forEach { tag ->
+                                        SelectedTagChip(
+                                            text = tag,
+                                            onRemove = { viewModel.toggleTag(tag) },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -465,7 +541,13 @@ fun AskScreen(
                                 strokeWidth = 2.dp,
                             )
                         }
-                        Text(if (uiState.isSubmitting) "提交中..." else "提交问题")
+                        Text(
+                            when {
+                                uiState.isConfirmingSubmission -> "确认中..."
+                                uiState.isSubmitting -> "提交中..."
+                                else -> "提交问题"
+                            },
+                        )
                     }
                     TextButton(onClick = viewModel::resetDraft) {
                         Text("丢弃草稿")
@@ -486,6 +568,16 @@ fun AskScreen(
             }
         }
     }
+
+    if (createTagDialogVisible) {
+        CreateTagDialog(
+            onDismiss = { createTagDialogVisible = false },
+            onCreate = { slug, displayName ->
+                viewModel.addCustomTag(slug, displayName)
+                createTagDialogVisible = false
+            },
+        )
+    }
 }
 
 @Composable
@@ -501,6 +593,127 @@ private fun EditorBlock(
         )
         body()
     }
+}
+
+@Composable
+private fun TagChoiceButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+        ) {
+            Text(text)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+        ) {
+            Text(text)
+        }
+    }
+}
+
+@Composable
+private fun SelectedTagChip(
+    text: String,
+    onRemove: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(999.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = text,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = "×",
+                modifier = Modifier.clickable(onClick = onRemove),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CreateTagDialog(
+    onDismiss: () -> Unit,
+    onCreate: (slug: String, displayName: String) -> Unit,
+) {
+    var slug by rememberSaveable { mutableStateOf("") }
+    var displayName by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "创建新标签",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                OutlinedTextField(
+                    value = slug,
+                    onValueChange = { slug = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("标签标识") },
+                    placeholder = { Text("英文标识（不可重复）") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                OutlinedTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("显示名称") },
+                    placeholder = { Text("显示名称（可选）") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("详细描述") },
+                    minLines = 3,
+                    shape = RoundedCornerShape(14.dp),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCreate(slug, displayName) },
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("确认创建")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
 }
 
 @Composable

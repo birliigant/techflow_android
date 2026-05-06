@@ -188,7 +188,15 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onGoProfile = { navigateToTopLevel(Routes.me()) },
-                    onSubmitted = { navigateToTopLevel(Routes.home) },
+                    onSubmitted = { questionId ->
+                        if (questionId.isNotBlank()) {
+                            navController.navigate(Routes.detail(questionId)) {
+                                popUpTo(Routes.ask) { inclusive = true }
+                            }
+                        } else {
+                            navigateToTopLevel(Routes.home)
+                        }
+                    },
                 )
             }
 
