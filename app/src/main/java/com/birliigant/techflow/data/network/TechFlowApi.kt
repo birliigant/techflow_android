@@ -84,10 +84,10 @@ interface TechFlowApi {
     suspend fun createAnswer(@Body request: CreateAnswerRequest): ApiEnvelope<JsonObject?>
 
     @HTTP(method = "DELETE", path = "answer/api/v1/question", hasBody = true)
-    suspend fun deleteQuestion(@Body request: RemoveQuestionRequest): ApiEnvelope<JsonObject?>
+    suspend fun deleteQuestion(@Body request: RemoveQuestionRequest): ApiEnvelope<JsonElement?>
 
     @HTTP(method = "DELETE", path = "answer/api/v1/answer", hasBody = true)
-    suspend fun deleteAnswer(@Body request: RemoveAnswerRequest): ApiEnvelope<JsonObject?>
+    suspend fun deleteAnswer(@Body request: RemoveAnswerRequest): ApiEnvelope<JsonElement?>
 
     @POST("answer/api/v1/user/login/email")
     suspend fun loginWithEmail(@Body request: EmailLoginRequest): ApiEnvelope<JsonObject>

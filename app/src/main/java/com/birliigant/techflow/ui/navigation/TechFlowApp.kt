@@ -369,6 +369,14 @@ fun TechFlowApp(appContainer: AppContainer) {
                         },
                     ),
                     onBack = { navController.popBackStack() },
+                    onQuestionDeleted = {
+                        navController.navigate(Routes.home) {
+                            popUpTo(Routes.home) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
                     onOpenUserProfile = ::openUserProfile,
                 )
             }

@@ -401,6 +401,7 @@ class QuestionDetailViewModel(
 fun QuestionDetailScreen(
     viewModel: QuestionDetailViewModel,
     onBack: () -> Unit,
+    onQuestionDeleted: () -> Unit,
     onOpenUserProfile: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -419,7 +420,7 @@ fun QuestionDetailScreen(
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.dismissActionMessage()
             if (shouldClose) {
-                onBack()
+                onQuestionDeleted()
             }
         }
     }
