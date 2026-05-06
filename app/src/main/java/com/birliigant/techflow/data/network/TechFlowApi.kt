@@ -13,8 +13,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
-import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
@@ -82,6 +82,12 @@ interface TechFlowApi {
 
     @POST("answer/api/v1/answer")
     suspend fun createAnswer(@Body request: CreateAnswerRequest): ApiEnvelope<JsonObject?>
+
+    @HTTP(method = "DELETE", path = "answer/api/v1/question", hasBody = true)
+    suspend fun deleteQuestion(@Body request: RemoveQuestionRequest): ApiEnvelope<JsonObject?>
+
+    @HTTP(method = "DELETE", path = "answer/api/v1/answer", hasBody = true)
+    suspend fun deleteAnswer(@Body request: RemoveAnswerRequest): ApiEnvelope<JsonObject?>
 
     @POST("answer/api/v1/user/login/email")
     suspend fun loginWithEmail(@Body request: EmailLoginRequest): ApiEnvelope<JsonObject>

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.ModeComment
 import androidx.compose.material.icons.outlined.Share
@@ -74,6 +75,7 @@ data class QuestionDetailUiState(
     val answerComments: Map<String, List<CommentItem>> = emptyMap(),
     val actionMessage: String? = null,
     val errorMessage: String? = null,
+    val closeAfterAction: Boolean = false,
 )
 
 private enum class AnswerSort(val label: String) {
@@ -83,6 +85,11 @@ private enum class AnswerSort(val label: String) {
 }
 
 private data class ReportTarget(
+    val objectId: String,
+    val label: String,
+)
+
+private data class DeleteTarget(
     val objectId: String,
     val label: String,
 )
@@ -123,7 +130,7 @@ class QuestionDetailViewModel(
     }
 
     fun dismissActionMessage() {
-        _uiState.update { it.copy(actionMessage = null) }
+        _uiState.update { it.copy(actionMessage = null, closeAfterAction = false) }
     }
 
     fun dismissErrorMessage() {
@@ -342,6 +349,39 @@ class QuestionDetailViewModel(
         }
     }
 
+    fun deleteQuestion() {
+        val detail = _uiState.value.detail ?: return
+        viewModelScope.launch {
+            val result = questionRepository.deleteQuestion(detail.id)
+            if (result.isSuccess) {
+                _uiState.update { it.copy(actionMessage = "帖子已删除", closeAfterAction = true) }
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
+            }
+        }
+    }
+
+    fun deleteAnswer(answerId: String) {
+        viewModelScope.launch {
+            val result = questionRepository.deleteAnswer(answerId)
+            if (result.isSuccess) {
+                _uiState.update { state ->
+                    state.copy(
+                        detail = state.detail?.copy(
+                            answers = state.detail.answers.filterNot { it.id == answerId },
+                            answerCount = (state.detail.answerCount - 1).coerceAtLeast(0),
+                        ),
+                        answerComments = state.answerComments - answerId,
+                        actionMessage = "回答已删除",
+                        errorMessage = null,
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = result.exceptionOrNull()?.message) }
+            }
+        }
+    }
+
     fun submitAnswer(content: String) {
         viewModelScope.launch {
             val result = questionRepository.createAnswer(questionId = questionId, content = content)
@@ -369,11 +409,16 @@ fun QuestionDetailScreen(
     var commentReplyTarget by remember { mutableStateOf<CommentReplyTarget?>(null) }
     var answerComposerDialog by remember { mutableStateOf(false) }
     var reportTarget by remember { mutableStateOf<ReportTarget?>(null) }
+    var deleteTarget by remember { mutableStateOf<DeleteTarget?>(null) }
 
     LaunchedEffect(uiState.actionMessage) {
         uiState.actionMessage?.let { message ->
+            val shouldClose = uiState.closeAfterAction
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.dismissActionMessage()
+            if (shouldClose) {
+                onBack()
+            }
         }
     }
 
@@ -425,6 +470,9 @@ fun QuestionDetailScreen(
                                 body = "${detail.title}\n${detail.shareUrl()}",
                             )
                         },
+                        onDeleteClick = {
+                            deleteTarget = DeleteTarget(detail.id, "帖子")
+                        },
                         onReportClick = {
                             reportTarget = ReportTarget(detail.id, "帖子")
                         },
@@ -474,6 +522,9 @@ fun QuestionDetailScreen(
                                     title = detail.title,
                                     body = "${detail.title}\n${detail.shareUrl()}#answer-${answer.id}\n回答者：${answer.authorName}",
                                 )
+                            },
+                            onDeleteClick = {
+                                deleteTarget = DeleteTarget(answer.id, "回答")
                             },
                             onReportClick = {
                                 reportTarget = ReportTarget(answer.id, "回答")
@@ -614,6 +665,33 @@ fun QuestionDetailScreen(
             },
         )
     }
+
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("删除${target.label}") },
+            text = { Text("确认删除这个${target.label}吗？删除后如果没有权限，后端会返回原因。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (target.label == "帖子") {
+                            viewModel.deleteQuestion()
+                        } else {
+                            viewModel.deleteAnswer(target.objectId)
+                        }
+                        deleteTarget = null
+                    },
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("取消")
+                }
+            },
+        )
+    }
 }
 
 private fun List<AnswerItem>.sortedBy(sort: AnswerSort): List<AnswerItem> {
@@ -632,6 +710,7 @@ private fun DetailHeader(
     onCollectionClick: () -> Unit,
     onCommentClick: () -> Unit,
     onShareClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onReportClick: () -> Unit,
 ) {
     ElevatedCard(
@@ -684,6 +763,7 @@ private fun DetailHeader(
                 onCollectionClick = onCollectionClick,
                 onCommentClick = onCommentClick,
                 onShareClick = onShareClick,
+                onDeleteClick = onDeleteClick,
                 onReportClick = onReportClick,
             )
         }
@@ -698,6 +778,7 @@ private fun AnswerCard(
     onVoteClick: () -> Unit,
     onCommentClick: () -> Unit,
     onShareClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onReportClick: () -> Unit,
     onLoadComments: () -> Unit,
     onCommentVoteClick: (CommentItem) -> Unit,
@@ -736,6 +817,7 @@ private fun AnswerCard(
                     onCommentClick()
                 },
                 onShareClick = onShareClick,
+                onDeleteClick = onDeleteClick,
                 onReportClick = onReportClick,
             )
             if (comments.isNotEmpty()) {
@@ -815,6 +897,7 @@ private fun InteractionBar(
     onCollectionClick: (() -> Unit)? = null,
     onCommentClick: () -> Unit,
     onShareClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onReportClick: () -> Unit,
 ) {
     Row(
@@ -838,6 +921,7 @@ private fun InteractionBar(
         }
         InlineIconAction(icon = Icons.Outlined.ModeComment, text = "评论", onClick = onCommentClick)
         InlineIconAction(icon = Icons.Outlined.Share, text = "分享", onClick = onShareClick)
+        InlineIconAction(icon = Icons.Outlined.Delete, text = "删除", onClick = onDeleteClick)
         InlineIconAction(icon = Icons.Outlined.Flag, text = "举报", onClick = onReportClick)
     }
 }

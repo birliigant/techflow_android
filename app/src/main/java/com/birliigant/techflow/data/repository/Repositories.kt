@@ -27,6 +27,8 @@ import com.birliigant.techflow.data.network.CollectionSwitchRequest
 import com.birliigant.techflow.data.network.CreateAnswerRequest
 import com.birliigant.techflow.data.network.EmailRegisterRequest
 import com.birliigant.techflow.data.network.EmailLoginRequest
+import com.birliigant.techflow.data.network.RemoveAnswerRequest
+import com.birliigant.techflow.data.network.RemoveQuestionRequest
 import com.birliigant.techflow.data.network.normalizeRemoteUrl
 import com.birliigant.techflow.data.network.toBadgeAwardList
 import com.birliigant.techflow.data.network.toDetail
@@ -312,7 +314,10 @@ class QuestionRepository(
         val votes = response.votes ?: response.upVotes ?: 0
         votes to response.voteStatus.orEmpty()
     }.recoverCatching { throwable ->
-        throw throwable.toApiMessageException("点赞失败，请稍后再试")
+        throw throwable.toApiMessageException(
+            fallback = "点赞失败，请稍后再试",
+            forbiddenFallback = "当前账号暂无点赞权限，或不能给自己的内容点赞",
+        )
     }
 
     private suspend fun ensurePermission(action: String) {
@@ -374,6 +379,24 @@ class QuestionRepository(
                 content = content,
             ),
         ).requireNullableData()
+    }
+
+    suspend fun deleteQuestion(questionId: String): Result<Unit> = runCatching {
+        apiClientProvider.api()
+            .deleteQuestion(RemoveQuestionRequest(id = questionId))
+            .requireNullableData()
+        Unit
+    }.recoverCatching { throwable ->
+        throw throwable.toApiMessageException("删除帖子失败，请稍后再试")
+    }
+
+    suspend fun deleteAnswer(answerId: String): Result<Unit> = runCatching {
+        apiClientProvider.api()
+            .deleteAnswer(RemoveAnswerRequest(id = answerId))
+            .requireNullableData()
+        Unit
+    }.recoverCatching { throwable ->
+        throw throwable.toApiMessageException("删除回答失败，请稍后再试")
     }
 
     private suspend fun cacheQuestions(questions: List<QuestionSummary>) {
@@ -620,7 +643,10 @@ private fun JsonObject.booleanOrNull(key: String): Boolean? {
     }.getOrNull()
 }
 
-private fun Throwable.toApiMessageException(fallback: String): Throwable {
+private fun Throwable.toApiMessageException(
+    fallback: String,
+    forbiddenFallback: String = fallback,
+): Throwable {
     if (this !is HttpException) return this
     val raw = response()?.errorBody()?.string()
     val parsedMessage = raw?.let { body ->
@@ -629,11 +655,7 @@ private fun Throwable.toApiMessageException(fallback: String): Throwable {
                 ?.let { it.stringOrNull("msg") ?: it.stringOrNull("reason") }
         }.getOrNull()
     }
-    val message = parsedMessage?.toUserFriendlyMessage() ?: if (code() == 403) {
-        "当前账号暂无点赞权限，或不能给自己的内容点赞"
-    } else {
-        fallback
-    }
+    val message = parsedMessage?.toUserFriendlyMessage() ?: if (code() == 403) forbiddenFallback else fallback
     return IllegalStateException(message, this)
 }
 

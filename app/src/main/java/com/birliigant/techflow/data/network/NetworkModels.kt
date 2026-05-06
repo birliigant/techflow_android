@@ -290,6 +290,18 @@ data class CreateAnswerRequest(
     val content: String,
 )
 
+data class RemoveQuestionRequest(
+    val id: String,
+    @SerializedName("captcha_id") val captchaId: String? = null,
+    @SerializedName("captcha_code") val captchaCode: String? = null,
+)
+
+data class RemoveAnswerRequest(
+    val id: String,
+    @SerializedName("captcha_id") val captchaId: String? = null,
+    @SerializedName("captcha_code") val captchaCode: String? = null,
+)
+
 fun SiteInfoDto.toModel(): SiteInfo {
     return SiteInfo(
         name = name.orEmpty().ifBlank { "TechFlow" },
