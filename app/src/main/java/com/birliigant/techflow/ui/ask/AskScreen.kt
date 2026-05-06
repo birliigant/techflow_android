@@ -78,9 +78,9 @@ private data class AskPartition(
 )
 
 private val askPartitions = listOf(
-    AskPartition("考研保研", "research"),
+    AskPartition("考研保研", "graduate"),
     AskPartition("实习就业", "internship"),
-    AskPartition("校内作业", "school"),
+    AskPartition("校内作业", "homework"),
     AskPartition("代码编程", "code"),
     AskPartition("日常思考", "deepseek"),
     AskPartition("专业相关", "major"),

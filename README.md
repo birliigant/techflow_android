@@ -221,6 +221,7 @@ app/src/main/java/com/birliigant/techflow
 ### 5.3 登录与会话
 
 - 支持邮箱密码登录
+- 密码输入默认隐藏，并提供眼睛图标用于临时显示 / 隐藏
 - 登录后自动刷新当前用户资料
 - 进入“我的”或“账号设置”页面时自动刷新用户态
 - 支持退出登录
@@ -259,6 +260,7 @@ app/src/main/java/com/birliigant/techflow
 
 - 支持创建问题
 - 支持填写标题、正文、标签、分区等信息
+- 发帖请求严格按 Swagger 的 `QuestionAdd` 提交，分区只用于将“其他”等标签归一到线上真实 tag slug
 - 支持更接近 Web 端的 Markdown 编辑器式输入区域
 - 支持标题、加粗、斜体、代码块、超链接、引用、图片上传、表格、有序列表、无序列表、缩进、减少缩进、水平线等工具栏操作
 - 支持跳转到 `https://commonmark.org/help/` 查看 CommonMark 帮助

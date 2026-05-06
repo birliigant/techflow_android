@@ -236,7 +236,6 @@ data class CreateQuestionRequest(
     val title: String,
     val content: String,
     val tags: List<CreateQuestionTagRequest>,
-    val partition: String? = null,
 )
 
 data class UpdateUserInfoRequest(
@@ -588,18 +587,43 @@ fun TagDto.toModel(): TagItem {
 }
 
 fun QuestionDraft.toRequest(): CreateQuestionRequest {
+    val normalizedPartition = partition.normalizeQuestionPartition()
     return CreateQuestionRequest(
         title = title,
         content = content,
         tags = tags.map { tag ->
+            val normalizedTag = tag.trim()
+            val slugName = normalizedTag.toQuestionTagSlug(normalizedPartition)
             CreateQuestionTagRequest(
-                displayName = tag,
-                originalText = tag,
-                slugName = tag,
+                displayName = normalizedTag,
+                originalText = normalizedTag,
+                slugName = slugName,
             )
         },
-        partition = partition.ifBlank { null },
     )
+}
+
+private fun String.normalizeQuestionPartition(): String {
+    return when (trim()) {
+        "research" -> "graduate"
+        "school" -> "homework"
+        else -> trim()
+    }
+}
+
+private fun String.toQuestionTagSlug(partition: String): String {
+    if (this != "其他") return this
+    return when (partition) {
+        "code",
+        "competition",
+        "deepseek",
+        "graduate",
+        "homework",
+        "internship",
+        "major",
+        -> "其他_$partition"
+        else -> this
+    }
 }
 
 fun UserProfileUpdate.toInfoRequest(): UpdateUserInfoRequest {

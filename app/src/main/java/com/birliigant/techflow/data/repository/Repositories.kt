@@ -268,6 +268,8 @@ class QuestionRepository(
         val response = apiClientProvider.api().createQuestion(draft.toRequest())
         val payload = response.requireNullableData()
         payload.extractString("id", "question_id", "questionId").orEmpty()
+    }.recoverCatching { throwable ->
+        throw throwable.toApiMessageException("提交问题失败，请检查标题、正文和标签后再试")
     }
 
     suspend fun uploadPostImage(

@@ -46,6 +46,7 @@ import com.birliigant.techflow.app.appViewModelFactory
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
+import com.birliigant.techflow.ui.common.PasswordTextField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
@@ -299,13 +300,10 @@ private fun LoginContent(
                     singleLine = true,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
-                OutlinedTextField(
+                PasswordTextField(
                     value = uiState.password,
                     onValueChange = viewModel::updatePassword,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("密码") },
-                    singleLine = true,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 )
                 Button(
                     onClick = viewModel::login,

@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.data.repository.UserRepository
+import com.birliigant.techflow.ui.common.PasswordTextField
 import com.birliigant.techflow.ui.common.ProfessionDropdownField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
@@ -161,12 +162,10 @@ fun RegisterScreen(
                             label = { Text("邮箱") },
                             singleLine = true,
                         )
-                        OutlinedTextField(
+                        PasswordTextField(
                             value = uiState.password,
                             onValueChange = viewModel::updatePassword,
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("密码") },
-                            singleLine = true,
                         )
                         Button(
                             onClick = viewModel::submit,
