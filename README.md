@@ -261,7 +261,7 @@ app/src/main/java/com/birliigant/techflow
 
 - 支持创建问题
 - 支持填写标题、正文、标签、分区等信息
-- 发帖请求严格按 Swagger 的 `QuestionAdd` 提交，分区只用于将“其他”等标签归一到线上真实 tag slug
+- 发帖请求对齐 Web 端实际行为提交 `title/content/partition/tags`；细分类标签可选，不填时自动使用当前分区下的“其他”标签
 - 支持更接近 Web 端的 Markdown 编辑器式输入区域
 - 支持标题、加粗、斜体、代码块、超链接、引用、图片上传、表格、有序列表、无序列表、缩进、减少缩进、水平线等工具栏操作
 - 支持跳转到 `https://commonmark.org/help/` 查看 CommonMark 帮助

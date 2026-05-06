@@ -177,10 +177,6 @@ class AskViewModel(
             return
         }
         val tags = state.tagsInput.split(",", "，", " ").map { it.trim() }.filter { it.isNotBlank() }
-        if (tags.isEmpty()) {
-            editorState.update { it.copy(message = "至少需要填写一个标签。") }
-            return
-        }
 
         viewModelScope.launch {
             editorState.update { it.copy(isSubmitting = true, message = null) }
@@ -384,7 +380,7 @@ fun AskScreen(
                                 value = uiState.tagsInput,
                                 onValueChange = viewModel::updateTags,
                                 modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("多个标签用逗号分隔，例如：后端, Java, Spring") },
+                                placeholder = { Text("可选，多个标签用逗号分隔；不填时自动使用“其他”") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(14.dp),
                             )

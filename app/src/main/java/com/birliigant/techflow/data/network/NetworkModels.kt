@@ -228,13 +228,14 @@ data class EmailRegisterRequest(
 
 data class CreateQuestionTagRequest(
     @SerializedName("display_name") val displayName: String,
-    @SerializedName("original_text") val originalText: String,
+    @SerializedName("original_text") val originalText: String? = null,
     @SerializedName("slug_name") val slugName: String,
 )
 
 data class CreateQuestionRequest(
     val title: String,
     val content: String,
+    val partition: String,
     val tags: List<CreateQuestionTagRequest>,
 )
 
@@ -588,15 +589,18 @@ fun TagDto.toModel(): TagItem {
 
 fun QuestionDraft.toRequest(): CreateQuestionRequest {
     val normalizedPartition = partition.normalizeQuestionPartition()
+    val normalizedTags = tags
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .ifEmpty { listOf("其他") }
     return CreateQuestionRequest(
         title = title,
         content = content,
-        tags = tags.map { tag ->
-            val normalizedTag = tag.trim()
+        partition = normalizedPartition,
+        tags = normalizedTags.map { normalizedTag ->
             val slugName = normalizedTag.toQuestionTagSlug(normalizedPartition)
             CreateQuestionTagRequest(
                 displayName = normalizedTag,
-                originalText = normalizedTag,
                 slugName = slugName,
             )
         },
