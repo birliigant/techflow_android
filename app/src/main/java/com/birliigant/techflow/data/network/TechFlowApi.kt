@@ -14,6 +14,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.HTTP
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -172,9 +173,12 @@ interface TechFlowApi {
     @GET("answer/api/v1/user/logout")
     suspend fun logout(): ApiEnvelope<JsonObject?>
 
+    @Headers("$SHORT_TIMEOUT_HEADER: true")
     @POST("answer/api/v1/question")
     suspend fun createQuestion(@Body request: CreateQuestionRequest): ApiEnvelope<JsonObject?>
 }
+
+private const val SHORT_TIMEOUT_HEADER = "X-TechFlow-Short-Timeout"
 
 class ApiClientProvider(
     private val configRepository: ConfigRepository,
@@ -207,11 +211,22 @@ class ApiClientProvider(
                     .readTimeout(45, TimeUnit.SECONDS)
                     .writeTimeout(45, TimeUnit.SECONDS)
                     .addInterceptor { chain ->
-                        val builder = chain.request().newBuilder()
+                        val request = chain.request()
+                        val useShortTimeout = request.header(SHORT_TIMEOUT_HEADER) == "true"
+                        val builder = request.newBuilder()
+                            .removeHeader(SHORT_TIMEOUT_HEADER)
                         if (token.isNotBlank()) {
                             builder.header("Authorization", token)
                         }
-                        chain.proceed(builder.build())
+                        val next = if (useShortTimeout) {
+                            chain
+                                .withConnectTimeout(12, TimeUnit.SECONDS)
+                                .withReadTimeout(12, TimeUnit.SECONDS)
+                                .withWriteTimeout(12, TimeUnit.SECONDS)
+                        } else {
+                            chain
+                        }
+                        next.proceed(builder.build())
                     }
                     .addInterceptor(
                         HttpLoggingInterceptor().apply {

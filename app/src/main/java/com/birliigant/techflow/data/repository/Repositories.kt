@@ -47,6 +47,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -270,12 +271,15 @@ class QuestionRepository(
     }
 
     suspend fun createQuestion(draft: QuestionDraft): Result<String> = runCatching {
+        val submittedAtMillis = System.currentTimeMillis()
         val response = apiClientProvider.api().createQuestion(draft.toRequest())
-        val payload = response.requireNullableData()
-        payload.extractString("id", "question_id", "questionId").orEmpty()
+        response.requireNullableData()
+            .extractString("id", "question_id", "questionId")
+            .orEmpty()
+            .ifBlank { findRecentlySubmittedQuestion(draft, submittedAtMillis).orEmpty() }
     }.recoverCatching { throwable ->
         val recoveredId = if (throwable.isUncertainCreateQuestionFailure()) {
-            findRecentlySubmittedQuestion(draft)
+            findRecentlySubmittedQuestion(draft, System.currentTimeMillis())
         } else {
             null
         }
@@ -286,24 +290,55 @@ class QuestionRepository(
         }
     }
 
-    private suspend fun findRecentlySubmittedQuestion(draft: QuestionDraft): String? {
+    private suspend fun findRecentlySubmittedQuestion(
+        draft: QuestionDraft,
+        submittedAtMillis: Long,
+    ): String? {
+        repeat(4) { attempt ->
+            findSubmittedQuestionOnce(draft, submittedAtMillis)?.let { return it }
+            if (attempt < 3) {
+                delay(1_200)
+            }
+        }
+        return null
+    }
+
+    private suspend fun findSubmittedQuestionOnce(
+        draft: QuestionDraft,
+        submittedAtMillis: Long,
+    ): String? {
         return runCatching {
             val title = draft.title.trim()
             val contentPreview = markdownPreview(draft.content, maxLength = 80)
             val today = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString()
-            apiClientProvider.api()
-                .getQuestions(page = 1, pageSize = 10, order = "newest")
-                .requireData()
-                .list
-                .orEmpty()
-                .map { it.toSummary() }
+            recentQuestionCandidates(title)
                 .firstOrNull { question ->
                     question.title.trim() == title &&
-                        formatDisplayDate(question.createdAt) == today &&
+                        question.isCreatedAfter(submittedAtMillis, today) &&
                         question.matchesDraftContent(contentPreview)
                 }
                 ?.id
         }.getOrNull()
+    }
+
+    private suspend fun recentQuestionCandidates(title: String): List<QuestionSummary> {
+        val api = apiClientProvider.api()
+        return buildList {
+            runCatching {
+                api.getQuestions(page = 1, pageSize = 20, order = "newest")
+                    .requireData()
+                    .list
+                    .orEmpty()
+                    .map { it.toSummary() }
+            }.getOrNull()?.let(::addAll)
+            runCatching {
+                api.search(query = title, order = "newest", page = 1, pageSize = 10)
+                    .requireData()
+                    .list
+                    .orEmpty()
+                    .mapNotNull { it.toQuestionSummaryOrNull() }
+            }.getOrNull()?.let(::addAll)
+        }.distinctBy { it.id }
     }
 
     private fun Throwable.isUncertainCreateQuestionFailure(): Boolean {
@@ -314,10 +349,26 @@ class QuestionRepository(
         if (contentPreview.isBlank()) return true
         val previewProbe = contentPreview.take(24)
         val excerptProbe = excerpt.take(24)
+        // The list API may return a truncated Markdown/plain-text excerpt, so title
+        // and submission time are the stronger recovery signals after a POST timeout.
         return previewProbe.isBlank() ||
             excerptProbe.isBlank() ||
             excerpt.contains(previewProbe, ignoreCase = true) ||
-            contentPreview.contains(excerptProbe, ignoreCase = true)
+            contentPreview.contains(excerptProbe, ignoreCase = true) ||
+            title.isNotBlank()
+    }
+
+    private fun QuestionSummary.isCreatedAfter(
+        submittedAtMillis: Long,
+        today: String,
+    ): Boolean {
+        val createdMillis = createdAt.trim().toLongOrNull()?.let { raw ->
+            if (createdAt.trim().length <= 10) raw * 1000 else raw
+        }
+        if (createdMillis != null) {
+            return createdMillis >= submittedAtMillis - 5 * 60 * 1000L
+        }
+        return formatDisplayDate(createdAt) == today
     }
 
     suspend fun uploadPostImage(
