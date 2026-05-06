@@ -454,7 +454,7 @@ app/build/outputs/apk/debug/app-debug.apk
 - 接口文档详细版：[docs/接口文档-详细版.md](docs/接口文档-详细版.md)
 - Swagger 原始定义：[docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml)
 - 原始品牌 Logo：[docs/img/logo.svg](docs/img/logo.svg)
-- App 图标源文件：[docs/img/app-logo.svg](docs/img/app-logo.svg)，Android 启动图标已使用该图标语义替换旧的默认 Android 图标
+- App 图标源文件：[docs/img/app-logo.svg](docs/img/app-logo.svg)，Android 启动图标已使用该图标语义替换旧的默认 Android 图标，并按 Adaptive Icon 安全区缩放居中，避免启动页裁切
 - 首页 / UI 参考图：`docs/img/` 目录下相关图片资源
 
 ## 13. 总结
