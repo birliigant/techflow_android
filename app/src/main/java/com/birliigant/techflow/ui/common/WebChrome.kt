@@ -44,6 +44,7 @@ fun TechFlowTopBar(
     dense: Boolean = false,
     onMenuClick: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
+    menuContent: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Surface(
@@ -77,12 +78,15 @@ fun TechFlowTopBar(
                     }
 
                     showMenu -> {
-                        IconButton(onClick = { onMenuClick?.invoke() }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Menu,
-                                contentDescription = "菜单",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
+                        Box {
+                            IconButton(onClick = { onMenuClick?.invoke() }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Menu,
+                                    contentDescription = "菜单",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                            menuContent?.invoke()
                         }
                     }
                 }

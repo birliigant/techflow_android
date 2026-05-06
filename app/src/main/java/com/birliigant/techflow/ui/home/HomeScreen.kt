@@ -269,93 +269,93 @@ private fun HomeHeader(
             .background(MaterialTheme.colorScheme.primary)
             .padding(bottom = 18.dp),
     ) {
-        Box {
-            TechFlowTopBar(
-                title = siteInfo?.name ?: "SIPC TechFlow",
-                showMenu = true,
-                onMenuClick = { navigationMenuExpanded = true },
-            ) {
-                if (currentUser == null) {
-                    TopBarTextAction(text = "登录", onClick = onOpenMe)
-                    TopBarFilledAction(text = "注册", onClick = onOpenRegister)
-                } else {
-                    Box {
-                        Row(
-                            modifier = Modifier.clickable { userMenuExpanded = true },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            AvatarBadge(text = currentUser.displayName)
-                            Text(
-                                text = currentUser.displayName,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                            Icon(
-                                imageVector = Icons.Outlined.KeyboardArrowDown,
-                                contentDescription = "用户菜单",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = userMenuExpanded,
-                            onDismissRequest = { userMenuExpanded = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("我的主页") },
-                                onClick = {
-                                    userMenuExpanded = false
-                                    onOpenProfile()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("收藏夹") },
-                                onClick = {
-                                    userMenuExpanded = false
-                                    onOpenCollections()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("账号设置") },
-                                onClick = {
-                                    userMenuExpanded = false
-                                    onOpenSettings()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("退出") },
-                                onClick = {
-                                    userMenuExpanded = false
-                                    onLogout()
-                                },
-                            )
-                        }
+        TechFlowTopBar(
+            title = siteInfo?.name ?: "SIPC TechFlow",
+            showMenu = true,
+            onMenuClick = { navigationMenuExpanded = true },
+            menuContent = {
+                DropdownMenu(
+                    expanded = navigationMenuExpanded,
+                    onDismissRequest = { navigationMenuExpanded = false },
+                    offset = DpOffset(x = 0.dp, y = 8.dp),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("问题") },
+                        onClick = { navigationMenuExpanded = false },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("标签") },
+                        onClick = {
+                            navigationMenuExpanded = false
+                            onOpenTags()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("用户") },
+                        onClick = {
+                            navigationMenuExpanded = false
+                            onOpenUsers()
+                        },
+                    )
+                }
+            },
+        ) {
+            if (currentUser == null) {
+                TopBarTextAction(text = "登录", onClick = onOpenMe)
+                TopBarFilledAction(text = "注册", onClick = onOpenRegister)
+            } else {
+                Box {
+                    Row(
+                        modifier = Modifier.clickable { userMenuExpanded = true },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        AvatarBadge(text = currentUser.displayName)
+                        Text(
+                            text = currentUser.displayName,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Icon(
+                            imageVector = Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = "用户菜单",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = userMenuExpanded,
+                        onDismissRequest = { userMenuExpanded = false },
+                        offset = DpOffset(x = 0.dp, y = 8.dp),
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("我的主页") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenProfile()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("收藏夹") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenCollections()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("账号设置") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onOpenSettings()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("退出") },
+                            onClick = {
+                                userMenuExpanded = false
+                                onLogout()
+                            },
+                        )
                     }
                 }
-            }
-
-            DropdownMenu(
-                expanded = navigationMenuExpanded,
-                onDismissRequest = { navigationMenuExpanded = false },
-                offset = DpOffset(x = 12.dp, y = 56.dp),
-            ) {
-                DropdownMenuItem(
-                    text = { Text("问题") },
-                    onClick = { navigationMenuExpanded = false },
-                )
-                DropdownMenuItem(
-                    text = { Text("标签") },
-                    onClick = {
-                        navigationMenuExpanded = false
-                        onOpenTags()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("用户") },
-                    onClick = {
-                        navigationMenuExpanded = false
-                        onOpenUsers()
-                    },
-                )
             }
         }
 
