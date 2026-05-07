@@ -150,6 +150,7 @@ ViewModel 与页面一一对应，负责：
 - `Room`：保存问题列表缓存，用于网络失败时兜底显示
 - `MMKV`：保存 access token、当前用户信息与轻量 UI 偏好状态
 - `Runtime Permission`：首次启动会按系统版本申请必要运行时权限，后续在图片上传等具体功能使用前再次动态检查并按需申请
+- `INTERNET`：网络访问权限属于普通安装时权限，Android 不提供运行时动态申请弹窗；只需要在 `AndroidManifest.xml` 中声明
 
 ### 3.3 为什么这样设计
 
@@ -283,7 +284,9 @@ app/src/main/java/com/birliigant/techflow
 
 - 首次打开 App 时会根据 Android 版本动态申请必要权限，例如 Android 13+ 的通知权限
 - 后续功能使用前会再次检查权限，例如提问页图片上传会在打开选择器前检查图片访问权限
+- Android 系统权限弹窗文案由系统语言控制，App 内会先展示中文说明弹窗，再唤起系统授权弹窗
 - 权限申请状态会通过 `MMKV` 记录，避免每次冷启动都重复打扰用户
+- 网络权限 `INTERNET` 不是危险权限，不支持运行时动态申请
 
 ## 6. 项目特点
 
@@ -309,6 +312,7 @@ app/src/main/java/com/birliigant/techflow
 - 回答列表里的“是否已采纳”以问题详情返回的 `accepted_answer_id` 为准，避免直接误用回答流里的不稳定 `accepted`
 - 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
 - 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
+- 徽章图标兼容后端返回的 Bootstrap Icons 风格标识，例如 `hand-thumbs-up-fill`，在本地映射为 Material 图标展示
 - 发帖请求里的 `tags` 已按 Swagger 要求发送为 `schema.TagItem` 对象数组，而不是纯字符串数组
 - 发帖接口的超时和 400 场景会短轮询“最新问题 + 搜索结果”做兜底确认，用于兼容后端已落库但客户端收到超时、重复提交或不稳定错误提示的情况
 

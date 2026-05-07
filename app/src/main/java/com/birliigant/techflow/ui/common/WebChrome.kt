@@ -248,6 +248,7 @@ fun AvatarImage(
     imageUrl: String?,
     fallbackText: String,
     modifier: Modifier = Modifier,
+    fallback: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     if (!imageUrl.isNullOrBlank()) {
@@ -269,14 +270,22 @@ fun AvatarImage(
                 ) {}
             },
             error = {
-                AvatarFallback(
-                    fallbackText = fallbackText,
-                    modifier = modifier,
-                )
+                if (fallback != null) {
+                    fallback()
+                } else {
+                    AvatarFallback(
+                        fallbackText = fallbackText,
+                        modifier = modifier,
+                    )
+                }
             },
         )
     } else {
-        AvatarFallback(fallbackText = fallbackText, modifier = modifier)
+        if (fallback != null) {
+            fallback()
+        } else {
+            AvatarFallback(fallbackText = fallbackText, modifier = modifier)
+        }
     }
 }
 

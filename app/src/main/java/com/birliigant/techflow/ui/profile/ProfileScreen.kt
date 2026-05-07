@@ -17,9 +17,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -899,9 +906,16 @@ private fun BadgeRow(item: BadgeAward) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AvatarImage(
-                imageUrl = item.icon,
+                imageUrl = item.icon?.takeIf(::isRemoteImageUrl),
                 fallbackText = item.name,
                 modifier = Modifier.size(56.dp),
+                fallback = {
+                    BadgeIcon(
+                        icon = item.icon,
+                        contentDescription = item.name,
+                        modifier = Modifier.size(56.dp),
+                    )
+                },
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -933,9 +947,16 @@ private fun BadgeSummaryChip(item: BadgeAward) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AvatarImage(
-                imageUrl = item.icon,
+                imageUrl = item.icon?.takeIf(::isRemoteImageUrl),
                 fallbackText = item.name,
                 modifier = Modifier.size(42.dp),
+                fallback = {
+                    BadgeIcon(
+                        icon = item.icon,
+                        contentDescription = item.name,
+                        modifier = Modifier.size(42.dp),
+                    )
+                },
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(text = item.name, fontWeight = FontWeight.SemiBold)
@@ -947,6 +968,41 @@ private fun BadgeSummaryChip(item: BadgeAward) {
             }
         }
     }
+}
+
+@Composable
+private fun BadgeIcon(
+    icon: String?,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon.toBadgeVector(),
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+    }
+}
+
+private fun String?.toBadgeVector(): ImageVector {
+    return when (orEmpty()) {
+        "hand-thumbs-up-fill" -> Icons.Outlined.ThumbUp
+        "check-circle-fill" -> Icons.Filled.CheckCircle
+        "check-square-fill" -> Icons.Outlined.CheckBox
+        else -> Icons.Outlined.EmojiEvents
+    }
+}
+
+private fun isRemoteImageUrl(value: String): Boolean {
+    return value.startsWith("http://") || value.startsWith("https://")
 }
 
 private fun profileTabsFor(isCurrentUser: Boolean): List<ProfileTab> {

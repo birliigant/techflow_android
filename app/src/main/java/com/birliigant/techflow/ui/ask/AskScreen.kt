@@ -61,6 +61,7 @@ import com.birliigant.techflow.core.model.QuestionDraft
 import com.birliigant.techflow.data.repository.QuestionRepository
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.ui.common.MarkdownText
+import com.birliigant.techflow.ui.common.PermissionRationaleDialog
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
@@ -289,6 +290,7 @@ fun AskScreen(
         mutableStateOf(TextFieldValue(uiState.content))
     }
     var createTagDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var pendingImagePermissions by remember { mutableStateOf<Array<String>>(emptyArray()) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -324,7 +326,7 @@ fun AskScreen(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
         } else {
-            imagePermissionLauncher.launch(permissions)
+            pendingImagePermissions = permissions
         }
     }
 
@@ -590,6 +592,18 @@ fun AskScreen(
             onCreate = { slug, displayName ->
                 viewModel.addCustomTag(slug, displayName)
                 createTagDialogVisible = false
+            },
+        )
+    }
+    if (pendingImagePermissions.isNotEmpty()) {
+        PermissionRationaleDialog(
+            title = "需要图片访问权限",
+            message = "上传帖子图片前，需要先允许 TechFlow 访问本地图片。授权后会继续打开图片选择器。",
+            onDismiss = { pendingImagePermissions = emptyArray() },
+            onConfirm = {
+                val permissions = pendingImagePermissions
+                pendingImagePermissions = emptyArray()
+                imagePermissionLauncher.launch(permissions)
             },
         )
     }
