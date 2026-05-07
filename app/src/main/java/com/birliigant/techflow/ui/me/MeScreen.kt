@@ -20,7 +20,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -46,7 +45,6 @@ import com.birliigant.techflow.app.appViewModelFactory
 import com.birliigant.techflow.core.model.UserProfile
 import com.birliigant.techflow.data.repository.SessionRepository
 import com.birliigant.techflow.data.repository.UserRepository
-import com.birliigant.techflow.ui.common.PasswordTextField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import com.birliigant.techflow.ui.common.TopBarFilledAction
@@ -63,8 +61,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class MeUiState(
-    val email: String = "",
-    val password: String = "",
     val user: UserProfile? = null,
     val busy: Boolean = false,
     val message: String? = null,
@@ -87,30 +83,7 @@ class MeViewModel(
         initialValue = editorState.value,
     )
 
-    fun updateEmail(value: String) = editorState.update { it.copy(email = value) }
-
-    fun updatePassword(value: String) = editorState.update { it.copy(password = value) }
-
     fun consumeMessage() = editorState.update { it.copy(message = null) }
-
-    fun login() {
-        val state = uiState.value
-        if (state.email.isBlank() || state.password.isBlank()) {
-            editorState.update { it.copy(message = "请输入邮箱和密码") }
-            return
-        }
-        viewModelScope.launch {
-            editorState.update { it.copy(busy = true, message = null) }
-            val result = userRepository.loginWithEmail(state.email.trim(), state.password)
-            editorState.update {
-                it.copy(
-                    busy = false,
-                    password = "",
-                    message = result.exceptionOrNull()?.message ?: "登录成功",
-                )
-            }
-        }
-    }
 
     fun refreshProfile(silent: Boolean = true) {
         viewModelScope.launch {
@@ -141,6 +114,7 @@ fun MeScreen(
     onQuestionClick: (String) -> Unit,
     onOpenCollections: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLogin: () -> Unit,
     onOpenRegister: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -184,11 +158,11 @@ fun MeScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TechFlowTopBar(
-            title = if (uiState.user == null) "SIPC TechFlow" else "我的主页",
+            title = if (uiState.user == null) "我的" else "我的主页",
             dense = uiState.user != null,
         ) {
             if (uiState.user == null) {
-                TopBarTextAction(text = "登录", onClick = {})
+                TopBarTextAction(text = "登录", onClick = onOpenLogin)
                 TopBarFilledAction(text = "注册", onClick = onOpenRegister)
             } else {
                 Box {
@@ -236,9 +210,8 @@ fun MeScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
-                    LoginContent(
-                        uiState = uiState,
-                        viewModel = viewModel,
+                    GuestMeContent(
+                        onOpenLogin = onOpenLogin,
                         onOpenRegister = onOpenRegister,
                     )
                 }
@@ -269,9 +242,8 @@ fun MeScreen(
 }
 
 @Composable
-private fun LoginContent(
-    uiState: MeUiState,
-    viewModel: MeViewModel,
+private fun GuestMeContent(
+    onOpenLogin: () -> Unit,
     onOpenRegister: () -> Unit,
 ) {
     Column(
@@ -284,34 +256,20 @@ private fun LoginContent(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
-                    text = "欢迎来到 SIPC TechFlow",
+                    text = "登录后查看完整个人主页",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "登录后即可继续浏览、提问、回答，并同步你的个人资料。",
+                    text = "我的页面只展示个人主页、收藏、声望、评论、得票和徽章等账户内容。登录和注册已经移到独立页面，避免和个人主页混在一起。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(
-                    value = uiState.email,
-                    onValueChange = viewModel::updateEmail,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("邮箱") },
-                    singleLine = true,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                )
-                PasswordTextField(
-                    value = uiState.password,
-                    onValueChange = viewModel::updatePassword,
-                    modifier = Modifier.fillMaxWidth(),
-                )
                 Button(
-                    onClick = viewModel::login,
-                    enabled = !uiState.busy,
+                    onClick = onOpenLogin,
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 ) {
-                    Text(if (uiState.busy) "登录中..." else "登录")
+                    Text("去登录")
                 }
                 Button(
                     onClick = onOpenRegister,

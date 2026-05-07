@@ -13,14 +13,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -28,7 +26,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.PasswordTextField
-import com.birliigant.techflow.ui.common.ProfessionDropdownField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,25 +34,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class RegisterUiState(
-    val name: String = "",
-    val profession: String = "",
+data class LoginUiState(
     val email: String = "",
     val password: String = "",
     val isSubmitting: Boolean = false,
     val message: String? = null,
-    val successMessage: String? = null,
+    val loggedIn: Boolean = false,
 )
 
-class RegisterViewModel(
+class LoginViewModel(
     private val userRepository: UserRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(RegisterUiState())
-    val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
-
-    fun updateName(value: String) = _uiState.update { it.copy(name = value) }
-
-    fun updateProfession(value: String) = _uiState.update { it.copy(profession = value) }
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     fun updateEmail(value: String) = _uiState.update { it.copy(email = value) }
 
@@ -63,58 +54,51 @@ class RegisterViewModel(
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
 
+    fun consumeLoggedIn() = _uiState.update { it.copy(loggedIn = false) }
+
     fun submit() {
         val state = _uiState.value
-        if (state.name.isBlank() || state.email.isBlank() || state.password.isBlank()) {
-            _uiState.update { it.copy(message = "请填写姓名、邮箱和密码") }
-            return
-        }
-        if (state.profession.isBlank()) {
-            _uiState.update { it.copy(message = "请选择专业") }
+        if (state.email.isBlank() || state.password.isBlank()) {
+            _uiState.update { it.copy(message = "请输入邮箱和密码") }
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, message = null, successMessage = null) }
-            val result = userRepository.registerWithEmail(
-                name = state.name.trim(),
-                email = state.email.trim(),
-                password = state.password,
-                profession = state.profession,
-            )
-            if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        password = "",
-                        successMessage = "注册成功，请前往邮箱完成激活后再登录。",
-                    )
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        message = result.exceptionOrNull()?.message ?: "注册失败",
-                    )
-                }
+            _uiState.update { it.copy(isSubmitting = true, message = null) }
+            val result = userRepository.loginWithEmail(state.email.trim(), state.password)
+            _uiState.update {
+                it.copy(
+                    isSubmitting = false,
+                    password = "",
+                    message = result.exceptionOrNull()?.message ?: "登录成功",
+                    loggedIn = result.isSuccess,
+                )
             }
         }
     }
 }
 
 @Composable
-fun RegisterScreen(
-    viewModel: RegisterViewModel,
+fun LoginScreen(
+    viewModel: LoginViewModel,
     onBack: () -> Unit,
-    onOpenLogin: () -> Unit,
+    onOpenRegister: () -> Unit,
+    onLoggedIn: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            snackbarHostState.showSnackbar(it)
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.consumeMessage()
+        }
+    }
+
+    LaunchedEffect(uiState.loggedIn) {
+        if (uiState.loggedIn) {
+            viewModel.consumeLoggedIn()
+            onLoggedIn()
         }
     }
 
@@ -124,15 +108,14 @@ fun RegisterScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TechFlowTopBar(
-            title = "注册",
+            title = "登录",
             onBackClick = onBack,
         )
-        SnackbarHost(hostState = snackbarHostState)
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
                 ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -145,17 +128,9 @@ fun RegisterScreen(
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        OutlinedTextField(
-                            value = uiState.name,
-                            onValueChange = viewModel::updateName,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("名字") },
-                            singleLine = true,
-                        )
-                        ProfessionDropdownField(
-                            value = uiState.profession,
-                            onValueChange = viewModel::updateProfession,
-                            label = "专业",
+                        Text(
+                            text = "登录后即可继续浏览、提问、回答，并同步你的个人资料。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         OutlinedTextField(
                             value = uiState.email,
@@ -163,6 +138,7 @@ fun RegisterScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("邮箱") },
                             singleLine = true,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                         )
                         PasswordTextField(
                             value = uiState.password,
@@ -173,23 +149,20 @@ fun RegisterScreen(
                             onClick = viewModel::submit,
                             enabled = !uiState.isSubmitting,
                             modifier = Modifier.fillMaxWidth(),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                         ) {
-                            Text(if (uiState.isSubmitting) "注册中..." else "注册")
+                            Text(if (uiState.isSubmitting) "登录中..." else "登录")
                         }
                         Button(
-                            onClick = onOpenLogin,
+                            onClick = onOpenRegister,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                 contentColor = MaterialTheme.colorScheme.primary,
                             ),
                         ) {
-                            Text("已有账户？去登录")
+                            Text("没有账户？去注册")
                         }
-                        Text(
-                            text = uiState.successMessage ?: "注册后请留意邮箱中的激活邮件。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
             }

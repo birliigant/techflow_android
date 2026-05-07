@@ -95,7 +95,9 @@ flowchart TD
 - `home` 首页问题流
 - `detail` 问题详情页
 - `ask` 提问页
-- `me` 我的页 / 登录页
+- `auth/login` 独立登录页
+- `auth/register` 独立注册页
+- `me` 我的页
 - `settings` 账号设置页
 - `profile` 用户主页
 - `explore/tags` 标签页
@@ -178,12 +180,13 @@ app/src/main/java/com/birliigant/techflow
 │   ├── network/TechFlowApi.kt       # Retrofit API 定义
 │   └── repository/Repositories.kt   # Repository 实现
 └── ui/
+    ├── auth/                        # 独立登录、注册页面
     ├── ask/                         # 提问页
     ├── common/                      # 公共 UI 组件、Markdown 渲染
     ├── detail/                      # 问题详情
     ├── explore/                     # 标签页、用户页
     ├── home/                        # 首页
-    ├── me/                          # 我的页 / 登录态
+    ├── me/                          # 我的页
     ├── navigation/                  # 应用导航入口
     ├── profile/                     # 用户主页
     ├── settings/                    # 账号设置
@@ -227,6 +230,7 @@ app/src/main/java/com/birliigant/techflow
 ### 5.3 登录与会话
 
 - 支持邮箱密码登录
+- 登录与注册是独立路由页面，不再嵌入“我的”页面
 - 密码输入默认隐藏，并提供眼睛图标用于临时显示 / 隐藏
 - 登录后自动刷新当前用户资料
 - 进入“我的”或“账号设置”页面时自动刷新用户态
@@ -234,7 +238,7 @@ app/src/main/java/com/birliigant/techflow
 
 ### 5.4 我的页面
 
-- 根据登录态切换内容
+- 未登录时展示轻量引导入口，并跳转到独立登录 / 注册页面
 - 登录后展示头像、用户名、邮箱、Rank、问题/回答数量
 - 提供用户主页、收藏夹、账号设置等入口
 
@@ -298,6 +302,7 @@ app/src/main/java/com/birliigant/techflow
 - 重要信息优先级重排
 - 详情内容支持原生滚动和阅读
 - 顶部操作区和用户菜单更适合触屏场景
+- 底部导航使用自定义紧凑栏，降低默认 Material3 导航栏占用高度
 - 首页工具菜单、用户菜单和我的页更多菜单都会锚定到触发按钮，并保留统一的下方间距
 - 列表和卡片做了更轻量的视觉压缩
 
