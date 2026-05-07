@@ -17,11 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.annotation.DrawableRes
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -35,8 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
+import com.birliigant.techflow.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -983,7 +980,7 @@ private fun BadgeIcon(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = icon.toBadgeVector(),
+                painter = painterResource(id = icon.toBootstrapIconDrawable()),
                 contentDescription = contentDescription,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(28.dp),
@@ -992,12 +989,13 @@ private fun BadgeIcon(
     }
 }
 
-private fun String?.toBadgeVector(): ImageVector {
+@DrawableRes
+private fun String?.toBootstrapIconDrawable(): Int {
     return when (orEmpty()) {
-        "hand-thumbs-up-fill" -> Icons.Outlined.ThumbUp
-        "check-circle-fill" -> Icons.Filled.CheckCircle
-        "check-square-fill" -> Icons.Outlined.CheckBox
-        else -> Icons.Outlined.EmojiEvents
+        "hand-thumbs-up-fill" -> R.drawable.ic_bootstrap_hand_thumbs_up_fill
+        "check-circle-fill" -> R.drawable.ic_bootstrap_check_circle_fill
+        "check-square-fill" -> R.drawable.ic_bootstrap_check_square_fill
+        else -> R.drawable.ic_bootstrap_award_fill
     }
 }
 

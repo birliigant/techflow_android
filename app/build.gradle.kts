@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.mmkv)
     implementation(libs.material)
+    implementation(libs.bootstrap.icons)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
