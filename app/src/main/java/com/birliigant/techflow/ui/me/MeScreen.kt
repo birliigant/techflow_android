@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -206,7 +208,7 @@ fun MeScreen(
         SnackbarHost(hostState = snackbarHostState)
         if (uiState.user == null) {
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 28.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 52.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item {
@@ -248,28 +250,37 @@ private fun GuestMeContent(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 30.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                Icon(
+                    imageVector = Icons.Outlined.AccountCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    modifier = Modifier.size(72.dp),
+                )
                 Text(
-                    text = "登录后查看完整个人主页",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "未登录",
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "我的页面只展示个人主页、收藏、声望、评论、得票和徽章等账户内容。登录和注册已经移到独立页面，避免和个人主页混在一起。",
+                    text = "登录后查看主页、收藏和消息。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Button(
                     onClick = onOpenLogin,
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                 ) {
-                    Text("去登录")
+                    Text("登录")
                 }
                 Button(
                     onClick = onOpenRegister,
