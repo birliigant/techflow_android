@@ -336,7 +336,15 @@ fun TechFlowApp(appContainer: AppContainer) {
                             popUpTo(Routes.login) { inclusive = true }
                         }
                     },
-                    onLoggedIn = { navigateToTopLevel(Routes.me()) },
+                    onLoggedIn = {
+                        navController.navigate(Routes.me()) {
+                            popUpTo(Routes.home) {
+                                saveState = false
+                            }
+                            launchSingleTop = true
+                            restoreState = false
+                        }
+                    },
                 )
             }
 

@@ -53,7 +53,7 @@ class LoginViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
-    private val _events = MutableSharedFlow<LoginEvent>()
+    private val _events = MutableSharedFlow<LoginEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<LoginEvent> = _events.asSharedFlow()
 
     fun updateEmail(value: String) = _uiState.update { it.copy(email = value) }
@@ -74,7 +74,7 @@ class LoginViewModel(
             val result = userRepository.loginWithEmail(state.email.trim(), state.password)
             if (result.isSuccess) {
                 _uiState.update { it.copy(isSubmitting = false, password = "") }
-                _events.emit(LoginEvent.LoginSucceeded("登录成功"))
+                _events.tryEmit(LoginEvent.LoginSucceeded("登录成功"))
             } else {
                 _uiState.update {
                     it.copy(
