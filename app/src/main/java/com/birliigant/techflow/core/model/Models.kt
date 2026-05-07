@@ -294,8 +294,11 @@ fun objectTypeLabel(raw: String): String {
 
 fun badgeLevelLabel(raw: String): String {
     return when (raw.lowercase()) {
+        "3",
         "gold" -> "金牌"
+        "2",
         "silver" -> "银牌"
+        "1",
         "bronze" -> "铜牌"
         else -> raw.ifBlank { "徽章" }
     }

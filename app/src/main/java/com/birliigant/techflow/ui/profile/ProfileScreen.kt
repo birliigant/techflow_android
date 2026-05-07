@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.birliigant.techflow.R
 import androidx.lifecycle.ViewModel
@@ -909,6 +910,7 @@ private fun BadgeRow(item: BadgeAward) {
                 fallback = {
                     BadgeIcon(
                         icon = item.icon,
+                        level = item.level,
                         contentDescription = item.name,
                         modifier = Modifier.size(56.dp),
                     )
@@ -950,6 +952,7 @@ private fun BadgeSummaryChip(item: BadgeAward) {
                 fallback = {
                     BadgeIcon(
                         icon = item.icon,
+                        level = item.level,
                         contentDescription = item.name,
                         modifier = Modifier.size(42.dp),
                     )
@@ -970,19 +973,21 @@ private fun BadgeSummaryChip(item: BadgeAward) {
 @Composable
 private fun BadgeIcon(
     icon: String?,
+    level: String,
     contentDescription: String,
     modifier: Modifier = Modifier,
 ) {
+    val badgeColor = badgeLevelColor(level)
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        color = badgeColor.copy(alpha = 0.16f),
         shape = MaterialTheme.shapes.medium,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(id = icon.toBootstrapIconDrawable()),
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = badgeColor,
                 modifier = Modifier.size(28.dp),
             )
         }
@@ -992,10 +997,28 @@ private fun BadgeIcon(
 @DrawableRes
 private fun String?.toBootstrapIconDrawable(): Int {
     return when (orEmpty()) {
+        "blue_bridge_cup",
+        "trophy-fill" -> R.drawable.ic_bootstrap_trophy_fill
+        "person-badge-fill" -> R.drawable.ic_bootstrap_person_badge_fill
+        "pencil-fill" -> R.drawable.ic_bootstrap_pencil_fill
+        "flag-fill" -> R.drawable.ic_bootstrap_flag_fill
         "hand-thumbs-up-fill" -> R.drawable.ic_bootstrap_hand_thumbs_up_fill
+        "emoji-smile-fill" -> R.drawable.ic_bootstrap_emoji_smile_fill
+        "share-fill" -> R.drawable.ic_bootstrap_share_fill
         "check-circle-fill" -> R.drawable.ic_bootstrap_check_circle_fill
         "check-square-fill" -> R.drawable.ic_bootstrap_check_square_fill
+        "chat-square-text-fill" -> R.drawable.ic_bootstrap_chat_square_text_fill
+        "question-circle-fill" -> R.drawable.ic_bootstrap_question_circle_fill
         else -> R.drawable.ic_bootstrap_award_fill
+    }
+}
+
+private fun badgeLevelColor(raw: String): Color {
+    return when (raw.lowercase()) {
+        "3", "gold" -> Color(0xFFFFD700)
+        "2", "silver" -> Color(0xFFC0C0C0)
+        "1", "bronze" -> Color(0xFFCD7F32)
+        else -> Color(0xFFCD7F32)
     }
 }
 

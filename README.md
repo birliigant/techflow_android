@@ -313,7 +313,7 @@ app/src/main/java/com/birliigant/techflow
 - 回答列表里的“是否已采纳”以问题详情返回的 `accepted_answer_id` 为准，避免直接误用回答流里的不稳定 `accepted`
 - 用户主页信息既兼容 Swagger 中的 `data.info` 包装，也兼容线上直接平铺在 `data` 下的结构
 - 徽章列表既兼容 Swagger 中的 `data=array[...]`，也兼容线上实际返回的 `data={ count, list }`
-- 徽章图标兼容后端返回的 Bootstrap Icons 标识，例如 `hand-thumbs-up-fill`；当 `icon` 是图片 URL 时按远程图片加载，否则按 Bootstrap Icons 矢量资源渲染
+- 徽章图标对齐 Web 端解析逻辑：`icon` 以 `http` 开头时按远程图片加载，否则按 Bootstrap Icons 名称映射本地矢量图标；默认徽章已覆盖 `person-badge-fill`、`pencil-fill`、`flag-fill`、`hand-thumbs-up-fill`、`emoji-smile-fill`、`share-fill`、`check-circle-fill`、`check-square-fill`、`chat-square-text-fill`、`question-circle-fill` 和 `blue_bridge_cup` 等标识，并按 `level=1/2/3` 或 `bronze/silver/gold` 展示铜、银、金颜色
 - 发帖请求里的 `tags` 已按 Swagger 要求发送为 `schema.TagItem` 对象数组，而不是纯字符串数组
 - 发帖接口的超时和 400 场景会短轮询“最新问题 + 搜索结果”做兜底确认，用于兼容后端已落库但客户端收到超时、重复提交或不稳定错误提示的情况
 
