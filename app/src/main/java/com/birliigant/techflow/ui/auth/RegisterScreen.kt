@@ -13,14 +13,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -31,9 +29,12 @@ import com.birliigant.techflow.ui.common.PasswordTextField
 import com.birliigant.techflow.ui.common.ProfessionDropdownField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -44,14 +45,19 @@ data class RegisterUiState(
     val password: String = "",
     val isSubmitting: Boolean = false,
     val message: String? = null,
-    val successMessage: String? = null,
 )
+
+sealed interface RegisterEvent {
+    data class RegisterSucceeded(val message: String) : RegisterEvent
+}
 
 class RegisterViewModel(
     private val userRepository: UserRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
+    private val _events = MutableSharedFlow<RegisterEvent>()
+    val events: SharedFlow<RegisterEvent> = _events.asSharedFlow()
 
     fun updateName(value: String) = _uiState.update { it.copy(name = value) }
 
@@ -75,7 +81,7 @@ class RegisterViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, message = null, successMessage = null) }
+            _uiState.update { it.copy(isSubmitting = true, message = null) }
             val result = userRepository.registerWithEmail(
                 name = state.name.trim(),
                 email = state.email.trim(),
@@ -83,13 +89,8 @@ class RegisterViewModel(
                 profession = state.profession,
             )
             if (result.isSuccess) {
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        password = "",
-                        successMessage = "注册成功，请前往邮箱完成激活后再登录。",
-                    )
-                }
+                _uiState.update { it.copy(isSubmitting = false, password = "") }
+                _events.emit(RegisterEvent.RegisterSucceeded("注册成功，请前往邮箱完成激活后再登录。"))
             } else {
                 _uiState.update {
                     it.copy(
@@ -109,12 +110,23 @@ fun RegisterScreen(
     onOpenLogin: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            snackbarHostState.showSnackbar(it)
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.consumeMessage()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is RegisterEvent.RegisterSucceeded -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_LONG).show()
+                    onOpenLogin()
+                }
+            }
         }
     }
 
@@ -127,7 +139,6 @@ fun RegisterScreen(
             title = "注册",
             onBackClick = onBack,
         )
-        SnackbarHost(hostState = snackbarHostState)
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -187,7 +198,7 @@ fun RegisterScreen(
                             Text("已有账户？去登录")
                         }
                         Text(
-                            text = uiState.successMessage ?: "注册后请留意邮箱中的激活邮件。",
+                            text = "注册后请留意邮箱中的激活邮件。",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

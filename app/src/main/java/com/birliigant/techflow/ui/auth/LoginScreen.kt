@@ -28,9 +28,12 @@ import com.birliigant.techflow.data.repository.UserRepository
 import com.birliigant.techflow.ui.common.PasswordTextField
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -39,22 +42,25 @@ data class LoginUiState(
     val password: String = "",
     val isSubmitting: Boolean = false,
     val message: String? = null,
-    val loggedIn: Boolean = false,
 )
+
+sealed interface LoginEvent {
+    data class LoginSucceeded(val message: String) : LoginEvent
+}
 
 class LoginViewModel(
     private val userRepository: UserRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+    private val _events = MutableSharedFlow<LoginEvent>()
+    val events: SharedFlow<LoginEvent> = _events.asSharedFlow()
 
     fun updateEmail(value: String) = _uiState.update { it.copy(email = value) }
 
     fun updatePassword(value: String) = _uiState.update { it.copy(password = value) }
 
     fun consumeMessage() = _uiState.update { it.copy(message = null) }
-
-    fun consumeLoggedIn() = _uiState.update { it.copy(loggedIn = false) }
 
     fun submit() {
         val state = _uiState.value
@@ -66,13 +72,16 @@ class LoginViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, message = null) }
             val result = userRepository.loginWithEmail(state.email.trim(), state.password)
-            _uiState.update {
-                it.copy(
-                    isSubmitting = false,
-                    password = "",
-                    message = result.exceptionOrNull()?.message ?: "登录成功",
-                    loggedIn = result.isSuccess,
-                )
+            if (result.isSuccess) {
+                _uiState.update { it.copy(isSubmitting = false, password = "") }
+                _events.emit(LoginEvent.LoginSucceeded("登录成功"))
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        message = result.exceptionOrNull()?.message ?: "登录失败",
+                    )
+                }
             }
         }
     }
@@ -95,10 +104,14 @@ fun LoginScreen(
         }
     }
 
-    LaunchedEffect(uiState.loggedIn) {
-        if (uiState.loggedIn) {
-            viewModel.consumeLoggedIn()
-            onLoggedIn()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is LoginEvent.LoginSucceeded -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                    onLoggedIn()
+                }
+            }
         }
     }
 
