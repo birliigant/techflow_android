@@ -4,9 +4,9 @@
 
 本项目完全由 Codex 基于现有后端接口文档、Swagger 产物和网页端交互参考实现。开发过程中没有直接复用网页端源码作为 Android 客户端，而是以接口契约为依据，重新设计并落地了原生 Android 的架构、数据层、Compose 界面与移动端交互。
 
-本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md)、[docs/接口文档-详细版.md](docs/接口文档-详细版.md)、[docs/swagger.json](docs/swagger.json) 与 [docs/swagger.yaml](docs/swagger.yaml) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
+本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md)、[docs/接口文档.md](docs/接口文档.md)、[docs/swagger.json](docs/swagger.json) 与 [docs/swagger.yaml](docs/swagger.yaml) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
 
-如果需要一份更偏“版本清单 / 技术归档”风格的说明，可以直接看 [docs/当前项目技术栈.md](docs/当前项目技术栈.md)。
+如果需要一份更偏“版本清单 / 技术归档”风格的说明，可以直接看 [docs/项目技术栈.md](docs/项目技术栈.md)。
 
 ## 1. 项目定位
 
@@ -308,7 +308,7 @@ app/src/main/java/com/birliigant/techflow
 
 为了尽量避免“详细版摘要没展开完整 schema”带来的误判，项目当前遵循这样的接口校准顺序：
 
-- 先看 [docs/接口文档-详细版.md](docs/接口文档-详细版.md) 快速定位接口
+- 先看 [docs/接口文档.md](docs/接口文档.md) 快速定位接口
 - 再看 [docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml) 获取完整请求体、响应体和模型引用
 - 如果 Swagger 与现网真实返回不一致，再在映射层做兼容处理
 
@@ -461,7 +461,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## 12. 参考文档
 
 - 接口文档入口：[docs/接口文档-入口.md](docs/接口文档-入口.md)
-- 接口文档详细版：[docs/接口文档-详细版.md](docs/接口文档-详细版.md)
+- 接口文档：[docs/接口文档.md](docs/接口文档.md)
 - Swagger 原始定义：[docs/swagger.json](docs/swagger.json) / [docs/swagger.yaml](docs/swagger.yaml)
 - 原始品牌 Logo：[docs/img/logo.svg](docs/img/logo.svg)
 - App 图标源文件：[docs/img/app-logo.svg](docs/img/app-logo.svg)，Android 启动图标已使用该图标语义替换旧的默认 Android 图标，并按 Adaptive Icon 安全区缩放居中，避免启动页裁切
