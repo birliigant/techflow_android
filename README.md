@@ -2,6 +2,8 @@
 
 一个基于 Apache Answer 后端接口构建的原生 Android 客户端，面向 `SIPC TechFlow` 学术问答社区的移动端使用场景。
 
+本项目完全由 Codex 基于现有后端接口文档、Swagger 产物和网页端交互参考实现。开发过程中没有直接复用网页端源码作为 Android 客户端，而是以接口契约为依据，重新设计并落地了原生 Android 的架构、数据层、Compose 界面与移动端交互。
+
 本项目当前以 [docs/接口文档-入口.md](docs/接口文档-入口.md)、[docs/接口文档-详细版.md](docs/接口文档-详细版.md)、[docs/swagger.json](docs/swagger.json) 与 [docs/swagger.yaml](docs/swagger.yaml) 作为主要后端接口依据，围绕「提问、浏览、详情、回答、用户主页、标签、个人资料」等核心场景，使用现代 Android 技术栈完成了一套可运行、可扩展、可持续演进的 Compose 客户端。
 
 如果需要一份更偏“版本清单 / 技术归档”风格的说明，可以直接看 [docs/当前项目技术栈.md](docs/当前项目技术栈.md)。
