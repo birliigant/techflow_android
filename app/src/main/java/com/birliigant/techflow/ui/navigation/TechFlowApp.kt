@@ -30,6 +30,7 @@ import com.birliigant.techflow.ui.ask.AskScreen
 import com.birliigant.techflow.ui.ask.AskViewModel
 import com.birliigant.techflow.ui.auth.RegisterScreen
 import com.birliigant.techflow.ui.auth.RegisterViewModel
+import com.birliigant.techflow.ui.common.RuntimePermissionGate
 import com.birliigant.techflow.ui.detail.QuestionDetailScreen
 import com.birliigant.techflow.ui.detail.QuestionDetailViewModel
 import com.birliigant.techflow.ui.explore.TagFeedScreen
@@ -105,6 +106,7 @@ fun TechFlowApp(appContainer: AppContainer) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     val showBottomBar = currentDestination?.route in topRoutes.map { it.routePattern }.toSet()
+    RuntimePermissionGate(uiPreferenceRepository = appContainer.uiPreferenceRepository)
 
     fun navigateToTopLevel(route: String) {
         navController.navigate(route) {

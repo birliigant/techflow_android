@@ -33,8 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -66,6 +64,8 @@ import com.birliigant.techflow.ui.common.MarkdownText
 import com.birliigant.techflow.ui.common.SectionSwitch
 import com.birliigant.techflow.ui.common.TechFlowFooter
 import com.birliigant.techflow.ui.common.TechFlowTopBar
+import com.birliigant.techflow.ui.common.hasRuntimePermissions
+import com.birliigant.techflow.ui.common.imageReadRuntimePermissions
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -282,7 +282,6 @@ fun AskScreen(
     onSubmitted: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -297,7 +296,7 @@ fun AskScreen(
         coroutineScope.launch {
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             if (bytes == null) {
-                snackbarHostState.showSnackbar("读取图片失败，请重试。")
+                Toast.makeText(context, "读取图片失败，请重试。", Toast.LENGTH_SHORT).show()
                 return@launch
             }
             viewModel.uploadImage(
@@ -305,6 +304,27 @@ fun AskScreen(
                 bytes = bytes,
                 mimeType = context.contentResolver.getType(uri).orEmpty().ifBlank { "image/*" },
             )
+        }
+    }
+    val imagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.isNotEmpty() && grants.values.all { it }) {
+            imagePickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        } else {
+            Toast.makeText(context, "需要图片访问权限才能上传图片。", Toast.LENGTH_SHORT).show()
+        }
+    }
+    val requestImageAndPick = {
+        val permissions = imageReadRuntimePermissions()
+        if (permissions.isEmpty() || context.hasRuntimePermissions(permissions)) {
+            imagePickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        } else {
+            imagePermissionLauncher.launch(permissions)
         }
     }
 
@@ -343,7 +363,6 @@ fun AskScreen(
             title = "新增问题",
             showMenu = false,
         )
-        SnackbarHost(hostState = snackbarHostState)
         LazyColumn(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -403,11 +422,7 @@ fun AskScreen(
                                         contentValue = operation(contentValue)
                                         viewModel.updateContent(contentValue.text)
                                     },
-                                    onPickImage = {
-                                        imagePickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                        )
-                                    },
+                                    onPickImage = requestImageAndPick,
                                     onOpenHelp = {
                                         uriHandler.openUri("https://commonmark.org/help/")
                                     },

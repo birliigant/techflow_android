@@ -93,8 +93,17 @@ class UiPreferenceRepository(private val storage: MMKV) {
         storage.encode(KEY_SEEN_SEARCH_HINTS, true)
     }
 
+    fun hasRequestedInitialRuntimePermissions(): Boolean {
+        return storage.decodeBool(KEY_INITIAL_RUNTIME_PERMISSIONS_REQUESTED, false)
+    }
+
+    fun markInitialRuntimePermissionsRequested() {
+        storage.encode(KEY_INITIAL_RUNTIME_PERMISSIONS_REQUESTED, true)
+    }
+
     companion object {
         private const val KEY_SEEN_SEARCH_HINTS = "seen_search_hints"
+        private const val KEY_INITIAL_RUNTIME_PERMISSIONS_REQUESTED = "initial_runtime_permissions_requested"
     }
 }
 
