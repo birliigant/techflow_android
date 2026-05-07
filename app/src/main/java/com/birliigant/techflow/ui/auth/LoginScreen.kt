@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 data class LoginUiState(
@@ -96,10 +97,11 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val appContext = context.applicationContext
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
-            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(appContext, it, android.widget.Toast.LENGTH_SHORT).show()
             viewModel.consumeMessage()
         }
     }
@@ -108,7 +110,8 @@ fun LoginScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is LoginEvent.LoginSucceeded -> {
-                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(appContext, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                    delay(250)
                     onLoggedIn()
                 }
             }
