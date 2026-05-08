@@ -24,6 +24,7 @@ import com.birliigant.techflow.data.repository.UiPreferenceRepository
 fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
     val context = LocalContext.current
     val initialPermissions = remember { initialRuntimePermissions() }
+    var showInitialPermissionDialog by remember { mutableStateOf(false) }
     var pendingInitialPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -36,25 +37,29 @@ fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
             return@LaunchedEffect
         }
         val missingPermissions = initialPermissions.filterNot(context::hasRuntimePermission)
-        if (missingPermissions.isEmpty()) {
-            uiPreferenceRepository.markInitialRuntimePermissionsRequested()
-        } else {
-            pendingInitialPermissions = missingPermissions
-        }
+        pendingInitialPermissions = missingPermissions
+        showInitialPermissionDialog = true
     }
 
-    if (pendingInitialPermissions.isNotEmpty()) {
+    if (showInitialPermissionDialog) {
         PermissionRationaleDialog(
-            title = "需要一些权限",
-            message = "TechFlow 需要 ${runtimePermissionLabels(pendingInitialPermissions)}，用于通知提醒和图片上传等系统能力。网络访问权限已在安装时声明，Android 不提供运行时授权弹窗。你可以稍后在系统设置中重新开启被拒绝的权限。",
+            title = "权限说明",
+            message = initialPermissionMessage(context, pendingInitialPermissions),
+            confirmText = if (pendingInitialPermissions.isEmpty()) "知道了" else "去授权",
             onDismiss = {
                 uiPreferenceRepository.markInitialRuntimePermissionsRequested()
+                showInitialPermissionDialog = false
                 pendingInitialPermissions = emptyList()
             },
             onConfirm = {
                 val permissions = pendingInitialPermissions.toTypedArray()
+                showInitialPermissionDialog = false
                 pendingInitialPermissions = emptyList()
-                launcher.launch(permissions)
+                if (permissions.isEmpty()) {
+                    uiPreferenceRepository.markInitialRuntimePermissionsRequested()
+                } else {
+                    launcher.launch(permissions)
+                }
             },
         )
     }
@@ -84,6 +89,7 @@ fun runtimePermissionLabels(permissions: Collection<String>): String {
 fun PermissionRationaleDialog(
     title: String,
     message: String,
+    confirmText: String = "去授权",
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -93,7 +99,7 @@ fun PermissionRationaleDialog(
         text = { Text(message) },
         confirmButton = {
             Button(onClick = onConfirm) {
-                Text("去授权")
+                Text(confirmText)
             }
         },
         dismissButton = {
@@ -111,6 +117,23 @@ private fun initialRuntimePermissions(): List<String> {
         }
         addAll(imageReadRuntimePermissions())
     }
+}
+
+private fun initialPermissionMessage(
+    context: Context,
+    missingRuntimePermissions: List<String>,
+): String {
+    val networkStatus = if (context.hasRuntimePermission(Manifest.permission.INTERNET)) {
+        "已授权"
+    } else {
+        "未授权，请检查安装包权限声明"
+    }
+    val runtimeMessage = if (missingRuntimePermissions.isEmpty()) {
+        "当前没有需要弹出系统授权框的运行时权限。"
+    } else {
+        "接下来会申请 ${runtimePermissionLabels(missingRuntimePermissions)}，用于通知提醒、图片上传等功能。"
+    }
+    return "网络访问权限：$networkStatus。Android 将网络访问视为普通权限，安装时自动授予，不提供运行时授权弹窗。\n\n$runtimeMessage"
 }
 
 private fun Context.hasRuntimePermission(permission: String): Boolean {
