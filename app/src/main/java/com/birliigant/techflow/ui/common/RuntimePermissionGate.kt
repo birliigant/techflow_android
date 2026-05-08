@@ -44,7 +44,7 @@ fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
     if (showInitialPermissionDialog) {
         PermissionRationaleDialog(
             title = "权限说明",
-            message = initialPermissionMessage(context, pendingInitialPermissions),
+            message = initialPermissionMessage(context),
             confirmText = if (pendingInitialPermissions.isEmpty()) "知道了" else "去授权",
             onDismiss = {
                 uiPreferenceRepository.markInitialRuntimePermissionsRequested()
@@ -121,19 +121,12 @@ private fun initialRuntimePermissions(): List<String> {
 
 private fun initialPermissionMessage(
     context: Context,
-    missingRuntimePermissions: List<String>,
 ): String {
-    val networkStatus = if (context.hasRuntimePermission(Manifest.permission.INTERNET)) {
-        "网络权限已授权"
+    return if (context.hasRuntimePermission(Manifest.permission.INTERNET)) {
+        "网络权限已授权。"
     } else {
-        "网络权限未授权"
+        "网络权限未授权。"
     }
-    val runtimeMessage = if (missingRuntimePermissions.isEmpty()) {
-        "无需其他授权。"
-    } else {
-        "接下来申请 ${runtimePermissionLabels(missingRuntimePermissions)}。"
-    }
-    return "$networkStatus，已随安装授予。\n$runtimeMessage"
 }
 
 private fun Context.hasRuntimePermission(permission: String): Boolean {
