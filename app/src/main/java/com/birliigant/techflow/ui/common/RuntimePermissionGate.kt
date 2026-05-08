@@ -1,7 +1,9 @@
 package com.birliigant.techflow.ui.common
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,7 +26,8 @@ import com.birliigant.techflow.data.repository.UiPreferenceRepository
 fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
     val context = LocalContext.current
     val initialPermissions = remember { initialRuntimePermissions() }
-    var showInitialPermissionDialog by remember { mutableStateOf(false) }
+    var showNetworkPermissionDialog by remember { mutableStateOf(false) }
+    var showRuntimePermissionDialog by remember { mutableStateOf(false) }
     var pendingInitialPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -38,28 +41,44 @@ fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
         }
         val missingPermissions = initialPermissions.filterNot(context::hasRuntimePermission)
         pendingInitialPermissions = missingPermissions
-        showInitialPermissionDialog = true
+        showNetworkPermissionDialog = true
     }
 
-    if (showInitialPermissionDialog) {
+    if (showNetworkPermissionDialog) {
         PermissionRationaleDialog(
-            title = "权限说明",
-            message = initialPermissionMessage(context),
-            confirmText = if (pendingInitialPermissions.isEmpty()) "知道了" else "去授权",
+            title = "网络权限",
+            message = "允许 TechFlow 访问网络？",
+            confirmText = "允许",
+            dismissText = "退出",
+            onDismiss = {
+                context.findActivity()?.finish()
+            },
+            onConfirm = {
+                showNetworkPermissionDialog = false
+                if (pendingInitialPermissions.isEmpty()) {
+                    uiPreferenceRepository.markInitialRuntimePermissionsRequested()
+                } else {
+                    showRuntimePermissionDialog = true
+                }
+            },
+        )
+    }
+
+    if (showRuntimePermissionDialog) {
+        PermissionRationaleDialog(
+            title = "其他权限",
+            message = "是否授权 ${runtimePermissionLabels(pendingInitialPermissions)}？",
+            confirmText = "去授权",
             onDismiss = {
                 uiPreferenceRepository.markInitialRuntimePermissionsRequested()
-                showInitialPermissionDialog = false
+                showRuntimePermissionDialog = false
                 pendingInitialPermissions = emptyList()
             },
             onConfirm = {
                 val permissions = pendingInitialPermissions.toTypedArray()
-                showInitialPermissionDialog = false
+                showRuntimePermissionDialog = false
                 pendingInitialPermissions = emptyList()
-                if (permissions.isEmpty()) {
-                    uiPreferenceRepository.markInitialRuntimePermissionsRequested()
-                } else {
-                    launcher.launch(permissions)
-                }
+                launcher.launch(permissions)
             },
         )
     }
@@ -90,6 +109,7 @@ fun PermissionRationaleDialog(
     title: String,
     message: String,
     confirmText: String = "去授权",
+    dismissText: String = "暂不授权",
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -104,7 +124,7 @@ fun PermissionRationaleDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("暂不授权")
+                Text(dismissText)
             }
         },
     )
@@ -119,18 +139,16 @@ private fun initialRuntimePermissions(): List<String> {
     }
 }
 
-private fun initialPermissionMessage(
-    context: Context,
-): String {
-    return if (context.hasRuntimePermission(Manifest.permission.INTERNET)) {
-        "网络权限已授权。"
-    } else {
-        "网络权限未授权。"
-    }
-}
-
 private fun Context.hasRuntimePermission(permission: String): Boolean {
     return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+}
+
+private tailrec fun Context.findActivity(): Activity? {
+    return when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 }
 
 private fun runtimePermissionLabel(permission: String): String {
