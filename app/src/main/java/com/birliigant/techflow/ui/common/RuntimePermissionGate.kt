@@ -124,16 +124,16 @@ private fun initialPermissionMessage(
     missingRuntimePermissions: List<String>,
 ): String {
     val networkStatus = if (context.hasRuntimePermission(Manifest.permission.INTERNET)) {
-        "已授权"
+        "网络权限已授权"
     } else {
-        "未授权，请检查安装包权限声明"
+        "网络权限未授权"
     }
     val runtimeMessage = if (missingRuntimePermissions.isEmpty()) {
-        "当前没有需要弹出系统授权框的运行时权限。"
+        "无需其他授权。"
     } else {
-        "接下来会申请 ${runtimePermissionLabels(missingRuntimePermissions)}，用于通知提醒、图片上传等功能。"
+        "接下来申请 ${runtimePermissionLabels(missingRuntimePermissions)}。"
     }
-    return "网络访问权限：$networkStatus。Android 将网络访问视为普通权限，安装时自动授予，不提供运行时授权弹窗。\n\n$runtimeMessage"
+    return "$networkStatus，已随安装授予。\n$runtimeMessage"
 }
 
 private fun Context.hasRuntimePermission(permission: String): Boolean {
