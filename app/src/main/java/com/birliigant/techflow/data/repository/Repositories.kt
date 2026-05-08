@@ -103,7 +103,7 @@ class UiPreferenceRepository(private val storage: MMKV) {
 
     companion object {
         private const val KEY_SEEN_SEARCH_HINTS = "seen_search_hints"
-        private const val KEY_INITIAL_RUNTIME_PERMISSIONS_REQUESTED = "initial_runtime_permissions_requested"
+        private const val KEY_INITIAL_RUNTIME_PERMISSIONS_REQUESTED = "initial_runtime_permissions_requested_v2"
     }
 }
 

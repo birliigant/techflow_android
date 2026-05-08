@@ -46,7 +46,7 @@ fun RuntimePermissionGate(uiPreferenceRepository: UiPreferenceRepository) {
     if (pendingInitialPermissions.isNotEmpty()) {
         PermissionRationaleDialog(
             title = "需要一些权限",
-            message = "TechFlow 需要 ${runtimePermissionLabels(pendingInitialPermissions)}，用于提供对应的系统能力。你可以稍后在系统设置中重新开启。",
+            message = "TechFlow 需要 ${runtimePermissionLabels(pendingInitialPermissions)}，用于通知提醒和图片上传等系统能力。网络访问权限已在安装时声明，Android 不提供运行时授权弹窗。你可以稍后在系统设置中重新开启被拒绝的权限。",
             onDismiss = {
                 uiPreferenceRepository.markInitialRuntimePermissionsRequested()
                 pendingInitialPermissions = emptyList()
@@ -109,6 +109,7 @@ private fun initialRuntimePermissions(): List<String> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        addAll(imageReadRuntimePermissions())
     }
 }
 
